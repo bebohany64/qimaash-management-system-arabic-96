@@ -91,11 +91,20 @@ const PurchasesManager = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    // Convert form data to proper types
+    const processedItems = formData.items.map(item => ({
+      product: item.product,
+      quantity: parseFloat(item.quantity) || 0,
+      price: parseFloat(item.price) || 0,
+      total: parseFloat(item.quantity) * parseFloat(item.price) || 0
+    }));
+    
     const newPurchase = {
       ...formData,
       id: Date.now(),
-      totalAmount: calculateTotalAmount(),
-      status: "مكتملة"
+      totalAmount: processedItems.reduce((sum, item) => sum + item.total, 0),
+      status: "مكتملة",
+      items: processedItems
     };
     
     setPurchases([...purchases, newPurchase]);
