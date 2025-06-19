@@ -1,12 +1,184 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Package, Users, ShoppingCart, FileText, Printer, Home, Plus } from "lucide-react";
+import ProductsManager from "@/components/ProductsManager";
+import SuppliersManager from "@/components/SuppliersManager";
+import PurchasesManager from "@/components/PurchasesManager";
+import ReportsManager from "@/components/ReportsManager";
+import PrintManager from "@/components/PrintManager";
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  const dashboardStats = [
+    { title: "إجمالي المنتجات", value: "156", icon: Package, color: "bg-blue-500" },
+    { title: "الموردين", value: "23", icon: Users, color: "bg-green-500" },
+    { title: "المشتريات هذا الشهر", value: "45", icon: ShoppingCart, color: "bg-purple-500" },
+    { title: "قيمة المخزون", value: "125,450 ر.س", icon: FileText, color: "bg-orange-500" }
+  ];
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100" dir="rtl">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4 space-x-reverse">
+              <Package className="h-8 w-8 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">نظام إدارة مخازن الأقمشة</h1>
+            </div>
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <span className="text-sm text-gray-600">مرحباً، المدير</span>
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-medium">م</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              لوحة التحكم
+            </TabsTrigger>
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              المنتجات
+            </TabsTrigger>
+            <TabsTrigger value="suppliers" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              الموردين
+            </TabsTrigger>
+            <TabsTrigger value="purchases" className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              المشتريات
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              التقارير
+            </TabsTrigger>
+            <TabsTrigger value="print" className="flex items-center gap-2">
+              <Printer className="h-4 w-4" />
+              الطباعة
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {dashboardStats.map((stat, index) => (
+                <Card key={index} className="hover:shadow-lg transition-shadow">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-600">
+                      {stat.title}
+                    </CardTitle>
+                    <div className={`${stat.color} p-2 rounded-lg`}>
+                      <stat.icon className="h-4 w-4 text-white" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  الإجراءات السريعة
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button 
+                    onClick={() => setActiveTab('products')}
+                    className="h-24 bg-blue-500 hover:bg-blue-600 text-white flex-col gap-2"
+                  >
+                    <Package className="h-6 w-6" />
+                    إضافة منتج جديد
+                  </Button>
+                  <Button 
+                    onClick={() => setActiveTab('suppliers')}
+                    className="h-24 bg-green-500 hover:bg-green-600 text-white flex-col gap-2"
+                  >
+                    <Users className="h-6 w-6" />
+                    إضافة مورد جديد
+                  </Button>
+                  <Button 
+                    onClick={() => setActiveTab('purchases')}
+                    className="h-24 bg-purple-500 hover:bg-purple-600 text-white flex-col gap-2"
+                  >
+                    <ShoppingCart className="h-6 w-6" />
+                    تسجيل مشترى جديد
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Activities */}
+            <Card>
+              <CardHeader>
+                <CardTitle>النشاطات الأخيرة</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>تم إضافة منتج جديد: قماش قطني أزرق</span>
+                    </div>
+                    <span className="text-sm text-gray-500">منذ ساعتين</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span>تم تحديث بيانات المورد: شركة النسيج المتقدمة</span>
+                    </div>
+                    <span className="text-sm text-gray-500">منذ 4 ساعات</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <span>تم تسجيل مشترى جديد بقيمة 15,750 ر.س</span>
+                    </div>
+                    <span className="text-sm text-gray-500">أمس</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Other Tabs */}
+          <TabsContent value="products">
+            <ProductsManager />
+          </TabsContent>
+
+          <TabsContent value="suppliers">
+            <SuppliersManager />
+          </TabsContent>
+
+          <TabsContent value="purchases">
+            <PurchasesManager />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <ReportsManager />
+          </TabsContent>
+
+          <TabsContent value="print">
+            <PrintManager />
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 };
