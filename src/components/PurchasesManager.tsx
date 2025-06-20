@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,33 +58,49 @@ const PurchasesManager = () => {
   // Load suppliers from database
   const loadSuppliers = async () => {
     try {
+      console.log('Loading suppliers...');
       const result = await executeQuery('SELECT id, name FROM suppliers ORDER BY name');
+      console.log('Suppliers result:', result);
+      
       if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
         const suppliersData = result.results[0].response.result.rows.map((row: any) => ({
           id: parseInt(row[0]),
           name: String(row[1] || "")
         }));
+        console.log('Loaded suppliers:', suppliersData);
         setSuppliers(suppliersData);
+      } else {
+        console.log('No suppliers found');
+        setSuppliers([]);
       }
     } catch (error) {
       console.error('Error loading suppliers:', error);
+      setSuppliers([]);
     }
   };
 
   // Load products from database
   const loadProducts = async () => {
     try {
+      console.log('Loading products...');
       const result = await executeQuery('SELECT id, name, price FROM products ORDER BY name');
+      console.log('Products result:', result);
+      
       if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
         const productsData = result.results[0].response.result.rows.map((row: any) => ({
           id: parseInt(row[0]),
           name: String(row[1] || ""),
           price: parseFloat(row[2] || 0)
         }));
+        console.log('Loaded products:', productsData);
         setProducts(productsData);
+      } else {
+        console.log('No products found');
+        setProducts([]);
       }
     } catch (error) {
       console.error('Error loading products:', error);
+      setProducts([]);
     }
   };
 
@@ -93,6 +108,7 @@ const PurchasesManager = () => {
   const loadPurchases = async () => {
     try {
       setIsLoading(true);
+      console.log('Loading purchases...');
       const result = await executeQuery(`
         SELECT p.id, p.supplier_id, s.name as supplier_name, p.date, p.notes, 
                p.product_name, p.quantity, p.price, p.total
@@ -100,6 +116,8 @@ const PurchasesManager = () => {
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         ORDER BY p.created_at DESC
       `);
+      
+      console.log('Purchases result:', result);
       
       if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
         const purchasesData = result.results[0].response.result.rows.map((row: any) => ({
@@ -113,20 +131,35 @@ const PurchasesManager = () => {
           price: parseFloat(row[7]),
           total: parseFloat(row[8])
         }));
+        console.log('Loaded purchases:', purchasesData);
         setPurchases(purchasesData);
+      } else {
+        console.log('No purchases found');
+        setPurchases([]);
       }
     } catch (error) {
       console.error('Error loading purchases:', error);
       toast.error('خطأ في تحميل المشتريات');
+      setPurchases([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadSuppliers();
-    loadProducts();
-    loadPurchases();
+    const initializeData = async () => {
+      try {
+        // انتظار قليل للتأكد من إنشاء الجداول
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await loadSuppliers();
+        await loadProducts();
+        await loadPurchases();
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      }
+    };
+    
+    initializeData();
   }, []);
 
   const filteredPurchases = purchases.filter(purchase =>
@@ -164,11 +197,23 @@ const PurchasesManager = () => {
       const total = calculateTotal();
       const purchasedQuantity = parseFloat(formData.quantity);
       
+      console.log('Submitting purchase:', {
+        supplier: formData.supplier,
+        date: dateString,
+        notes: formData.notes,
+        product: formData.product,
+        quantity: purchasedQuantity,
+        price: formData.price,
+        total: total
+      });
+      
       // إضافة المشترى في قاعدة البيانات
-      await executeQuery(
+      const insertResult = await executeQuery(
         'INSERT INTO purchases (supplier_id, date, notes, product_name, quantity, price, total) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [formData.supplier, dateString, formData.notes, formData.product, formData.quantity, formData.price, total]
+        [formData.supplier, dateString, formData.notes, formData.product, purchasedQuantity, formData.price, total]
       );
+      
+      console.log('Purchase insert result:', insertResult);
       
       // تحديث كمية المنتج في جدول المنتجات
       const updateSuccess = await updateProductQuantityOnPurchase(formData.product, purchasedQuantity);
@@ -179,8 +224,10 @@ const PurchasesManager = () => {
         toast.success("تم تسجيل المشترى بنجاح، لكن لم يتم العثور على المنتج لتحديث الكمية");
       }
       
+      // إعادة تحميل البيانات
       await loadPurchases();
       
+      // إعادة تعيين النموذج
       setFormData({
         supplier: "",
         date: null,
@@ -192,7 +239,7 @@ const PurchasesManager = () => {
       setIsAddingPurchase(false);
     } catch (error) {
       console.error('Error saving purchase:', error);
-      toast.error('خطأ في حفظ المشترى');
+      toast.error('خطأ في حفظ المشترى: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -203,6 +250,7 @@ const PurchasesManager = () => {
     
     try {
       setIsLoading(true);
+      console.log('Deleting purchase:', id);
       await executeQuery('DELETE FROM purchases WHERE id = ?', [id]);
       await loadPurchases();
       toast.success("تم حذف المشترى بنجاح");

@@ -54,6 +54,12 @@ export const executeQuery = async (sql: string, params: any[] = []) => {
     const result = await response.json();
     console.log('Raw database query result:', result);
     
+    // التحقق من وجود خطأ في النتيجة
+    if (result && result.results && result.results[0] && result.results[0].type === "error") {
+      console.error('Database error:', result.results[0].error);
+      throw new Error(`Database error: ${result.results[0].error.message}`);
+    }
+    
     // Process the result to extract actual values
     if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result) {
       const queryResult = result.results[0].response.result;
@@ -112,63 +118,92 @@ export const updateProductQuantityOnPurchase = async (productName: string, purch
   }
 };
 
-// دوال إنشاء الجداول
+// دوال إنشاء الجداول بطريقة متسلسلة
 export const createTables = async () => {
-  // أولاً، احذف الجدول القديم إذا كان موجوداً
-  const dropOldTable = `DROP TABLE IF EXISTS products`;
-  
-  const createProductsTable = `
-    CREATE TABLE IF NOT EXISTS products (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      custom_category TEXT,
-      unit TEXT NOT NULL,
-      price REAL NOT NULL,
-      previous_balance REAL NOT NULL,
-      outgoing REAL NOT NULL,
-      total REAL NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  const createSuppliersTable = `
-    CREATE TABLE IF NOT EXISTS suppliers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      contact_person TEXT NOT NULL,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  const createPurchasesTable = `
-    CREATE TABLE IF NOT EXISTS purchases (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      supplier_id INTEGER,
-      date TEXT NOT NULL,
-      notes TEXT,
-      product_name TEXT NOT NULL,
-      quantity REAL NOT NULL,
-      price REAL NOT NULL,
-      total REAL NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
-    )
-  `;
-
   try {
-    console.log('Dropping old products table...');
-    await executeQuery(dropOldTable);
-    console.log('Creating new products table...');
+    console.log('Starting table creation process...');
+    
+    // أولاً، احذف الجداول القديمة إذا كانت موجودة
+    console.log('Dropping old tables if they exist...');
+    await executeQuery(`DROP TABLE IF EXISTS purchases`);
+    await executeQuery(`DROP TABLE IF EXISTS products`);
+    await executeQuery(`DROP TABLE IF EXISTS suppliers`);
+
+    // إنشاء جدول المنتجات
+    console.log('Creating products table...');
+    const createProductsTable = `
+      CREATE TABLE products (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        custom_category TEXT,
+        unit TEXT NOT NULL,
+        price REAL NOT NULL DEFAULT 0,
+        previous_balance REAL NOT NULL DEFAULT 0,
+        outgoing REAL NOT NULL DEFAULT 0,
+        total REAL NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
     await executeQuery(createProductsTable);
+
+    // إنشاء جدول الموردين
+    console.log('Creating suppliers table...');
+    const createSuppliersTable = `
+      CREATE TABLE suppliers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        contact_person TEXT NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
     await executeQuery(createSuppliersTable);
+
+    // إنشاء جدول المشتريات
+    console.log('Creating purchases table...');
+    const createPurchasesTable = `
+      CREATE TABLE purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supplier_id INTEGER,
+        date TEXT NOT NULL,
+        notes TEXT,
+        product_name TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        price REAL NOT NULL,
+        total REAL NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+      )
+    `;
     await executeQuery(createPurchasesTable);
-    console.log('Tables created successfully');
+
+    console.log('All tables created successfully');
+    
+    // إضافة بعض البيانات التجريبية للاختبار
+    console.log('Adding sample data...');
+    
+    // إضافة مورد تجريبي
+    await executeQuery(
+      'INSERT INTO suppliers (name, contact_person, notes) VALUES (?, ?, ?)',
+      ['مورد تجريبي', 'أحمد محمد', 'مورد للاختبار']
+    );
+    
+    // إضافة منتج تجريبي
+    await executeQuery(
+      'INSERT INTO products (name, category, unit, price, previous_balance, outgoing, total) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ['قماش قطني', 'أقمشة', 'متر', 25.50, 100, 0, 100]
+    );
+    
+    console.log('Sample data added successfully');
+    
   } catch (error) {
-    console.error('Error creating tables:', error);
+    console.error('Error in table creation process:', error);
+    throw error;
   }
 };
 
-// يتم تشغيل إنشاء الجداول عند تحميل التطبيق
-createTables();
+// تشغيل إنشاء الجداول عند تحميل التطبيق
+createTables().catch(error => {
+  console.error('Failed to initialize database:', error);
+});
