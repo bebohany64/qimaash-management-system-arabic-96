@@ -1,4 +1,3 @@
-
 // تحذير: تخزين معلومات قاعدة البيانات في الكود غير آمن
 // يُنصح بشدة باستخدام تكامل Supabase المدمج في Lovable
 
@@ -10,7 +9,7 @@ export interface DatabaseConfig {
 // معلومات الاتصال - يجب نقلها إلى متغيرات البيئة في الإنتاج
 export const dbConfig: DatabaseConfig = {
   url: "libsql://alkoa-alaaamla-bebo.aws-eu-west-1.turso.io",
-  token: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NTAzNzkzNjIsImlkIjoiZjdhMjJlN2MtNDYwYS00YmVhLWE5NGQtNWFlYjNlZTdkOGMzIiwicmlkIjoiODk1MmRjMzMtZTBlNi00MTdlLWE4ZDEtNDllNjM1Mzk3N2IzIn0.tkbP13lNo_fg9x3pCh3w7LoWxAlKtuAR_eUQkS_wEaOQ83ncKBQEmMCeDzAUtFDhWTc3jC_xii87yYF865NXBQ"
+  token: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NTAzODEwMDUsImlkIjoiZjdhMjJlN2MtNDYwYS00YmVhLWE5NGQtNWFlYjNlZTdkOGMzIiwicmlkIjoiODk1MmRjMzMtZTBlNi00MTdlLWE4ZDEtNDllNjM1Mzk3N2IzIn0.YwaGzTMEFuufazVP2FWGbUEYFnzr_KNv9acog4TsDBN_kDRlHflI0wILhjpJGXfTV1sbTMa1RvGe4kJplaPABQ"
 };
 
 // دالة أساسية للاتصال بقاعدة البيانات
