@@ -3,46 +3,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
+/* Definition of the design system with Green, Blue, Yellow color scheme */
 
 @layer base {
   :root {
-    --background: 17 24 39;
-    --foreground: 243 244 246;
+    --background: 15 23 42;
+    --foreground: 248 250 252;
 
-    --card: 31 41 55;
-    --card-foreground: 243 244 246;
+    --card: 30 41 59;
+    --card-foreground: 248 250 252;
 
-    --popover: 31 41 55;
-    --popover-foreground: 243 244 246;
+    --popover: 30 41 59;
+    --popover-foreground: 248 250 252;
 
-    --primary: 59 130 246;
+    --primary: 34 197 94;
     --primary-foreground: 255 255 255;
 
-    --secondary: 75 85 99;
-    --secondary-foreground: 243 244 246;
+    --secondary: 59 130 246;
+    --secondary-foreground: 255 255 255;
 
-    --muted: 55 65 81;
-    --muted-foreground: 156 163 175;
+    --muted: 51 65 85;
+    --muted-foreground: 203 213 225;
 
-    --accent: 59 130 246;
-    --accent-foreground: 255 255 255;
+    --accent: 250 204 21;
+    --accent-foreground: 15 23 42;
 
     --destructive: 239 68 68;
     --destructive-foreground: 255 255 255;
 
-    --border: 75 85 99;
-    --input: 55 65 81;
-    --ring: 59 130 246;
+    --border: 71 85 105;
+    --input: 51 65 85;
+    --ring: 34 197 94;
 
-    --sidebar-background: 17 24 39;
-    --sidebar-foreground: 243 244 246;
-    --sidebar-primary: 59 130 246;
+    --sidebar-background: 15 23 42;
+    --sidebar-foreground: 248 250 252;
+    --sidebar-primary: 34 197 94;
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 31 41 55;
-    --sidebar-accent-foreground: 243 244 246;
-    --sidebar-border: 75 85 99;
-    --sidebar-ring: 59 130 246;
+    --sidebar-accent: 30 41 59;
+    --sidebar-accent-foreground: 248 250 252;
+    --sidebar-border: 71 85 105;
+    --sidebar-ring: 34 197 94;
   }
 }
 
@@ -53,82 +53,120 @@
 
   body {
     @apply bg-background text-foreground;
-    background-color: rgb(17 24 39);
-    color: rgb(243 244 246);
+    background-color: rgb(15 23 42) !important;
+    color: rgb(248 250 252) !important;
+    font-weight: 500;
   }
 }
 
-/* Force dark mode globally */
+/* Force dark mode globally with better contrast */
 html {
   color-scheme: dark;
 }
 
 body {
-  background-color: rgb(17 24 39) !important;
-  color: rgb(243 244 246) !important;
+  background-color: rgb(15 23 42) !important;
+  color: rgb(248 250 252) !important;
 }
 
 /* Enhanced dark mode for better text visibility */
 .dark, [data-theme="dark"] {
-  --background: 17 24 39;
-  --foreground: 243 244 246;
-  --card: 31 41 55;
-  --card-foreground: 243 244 246;
-  --popover: 31 41 55;
-  --popover-foreground: 243 244 246;
-  --primary: 59 130 246;
+  --background: 15 23 42;
+  --foreground: 248 250 252;
+  --card: 30 41 59;
+  --card-foreground: 248 250 252;
+  --popover: 30 41 59;
+  --popover-foreground: 248 250 252;
+  --primary: 34 197 94;
   --primary-foreground: 255 255 255;
-  --secondary: 75 85 99;
-  --secondary-foreground: 243 244 246;
-  --muted: 55 65 81;
-  --muted-foreground: 156 163 175;
-  --accent: 59 130 246;
-  --accent-foreground: 255 255 255;
+  --secondary: 59 130 246;
+  --secondary-foreground: 255 255 255;
+  --muted: 51 65 85;
+  --muted-foreground: 203 213 225;
+  --accent: 250 204 21;
+  --accent-foreground: 15 23 42;
   --destructive: 239 68 68;
   --destructive-foreground: 255 255 255;
-  --border: 75 85 99;
-  --input: 55 65 81;
-  --ring: 59 130 246;
+  --border: 71 85 105;
+  --input: 51 65 85;
+  --ring: 34 197 94;
 }
 
-/* Improved text contrast for dark mode */
+/* High contrast text for better readability */
 h1, h2, h3, h4, h5, h6 {
-  color: rgb(255 255 255) !important;
+  color: rgb(248 250 252) !important;
+  font-weight: 600;
 }
 
-p, span, div {
-  color: rgb(229 231 235);
+p, span, div, label {
+  color: rgb(226 232 240) !important;
+  font-weight: 500;
 }
 
 /* Enhanced form inputs for dark mode */
 input, select, textarea {
-  background-color: rgb(55 65 81) !important;
-  border-color: rgb(75 85 99) !important;
-  color: rgb(255 255 255) !important;
+  background-color: rgb(51 65 85) !important;
+  border-color: rgb(71 85 105) !important;
+  color: rgb(248 250 252) !important;
+  font-weight: 500;
 }
 
 input::placeholder, textarea::placeholder {
-  color: rgb(156 163 175) !important;
+  color: rgb(148 163 184) !important;
 }
 
-/* Better button styling for dark mode */
-button {
-  transition: all 0.3s ease;
+input:focus, select:focus, textarea:focus {
+  border-color: rgb(34 197 94) !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3) !important;
+  outline: none;
+}
+
+/* Better button styling with color scheme */
+.btn-primary, button[class*="bg-green"] {
+  background-color: rgb(34 197 94) !important;
+  color: rgb(255 255 255) !important;
+  border: none !important;
+}
+
+.btn-primary:hover, button[class*="bg-green"]:hover {
+  background-color: rgb(22 163 74) !important;
+}
+
+.btn-secondary, button[class*="bg-blue"] {
+  background-color: rgb(59 130 246) !important;
+  color: rgb(255 255 255) !important;
+  border: none !important;
+}
+
+.btn-secondary:hover, button[class*="bg-blue"]:hover {
+  background-color: rgb(37 99 235) !important;
+}
+
+.btn-accent, button[class*="bg-yellow"] {
+  background-color: rgb(250 204 21) !important;
+  color: rgb(15 23 42) !important;
+  border: none !important;
+  font-weight: 600;
+}
+
+.btn-accent:hover, button[class*="bg-yellow"]:hover {
+  background-color: rgb(234 179 8) !important;
 }
 
 /* Improved table styling for dark mode */
 table {
-  background-color: rgb(31 41 55);
+  background-color: rgb(30 41 59) !important;
 }
 
 th {
-  background-color: rgb(55 65 81) !important;
-  color: rgb(209 213 219) !important;
+  background-color: rgb(51 65 85) !important;
+  color: rgb(248 250 252) !important;
+  font-weight: 600;
 }
 
 td {
-  color: rgb(229 231 235) !important;
-  border-color: rgb(75 85 99) !important;
+  color: rgb(226 232 240) !important;
+  border-color: rgb(71 85 105) !important;
 }
 
 /* Custom Animation Classes */
@@ -165,15 +203,6 @@ td {
   }
 }
 
-@keyframes pulse-slow {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
 .animate-fade-in {
   animation: fade-in 0.6s ease-out forwards;
 }
@@ -184,10 +213,6 @@ td {
 
 .animate-slide-in-right {
   animation: slide-in-right 0.5s ease-out forwards;
-}
-
-.animate-pulse-slow {
-  animation: pulse-slow 2s ease-in-out infinite;
 }
 
 .hover-scale {
@@ -203,15 +228,9 @@ td {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-/* Smooth transitions for all interactive elements */
-button, input, select, textarea {
-  transition: all 0.3s ease;
-}
-
 /* Enhanced focus states for dark mode */
-input:focus, select:focus, textarea:focus {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
-  border-color: rgb(59, 130, 246) !important;
+button:focus {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3) !important;
   outline: none;
 }
 
@@ -221,57 +240,54 @@ input:focus, select:focus, textarea:focus {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgb(17, 24, 39);
+  background: rgb(15 23 42);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(75, 85, 99);
+  background: rgb(71 85 105);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(107, 114, 128);
+  background: rgb(100 116 139);
 }
 
-/* Gradient backgrounds for dark mode */
-.bg-gradient-to-br {
-  background: linear-gradient(to bottom right, rgb(17 24 39), rgb(31 41 55)) !important;
-}
-
-/* Improved card styling */
+/* Card styling */
 .card {
-  background-color: rgb(31 41 55) !important;
-  border-color: rgb(75 85 99) !important;
+  background-color: rgb(30 41 59) !important;
+  border-color: rgb(71 85 105) !important;
 }
 
 /* Select dropdown styling for dark mode */
 [data-radix-select-content] {
-  background-color: rgb(55 65 81) !important;
-  border-color: rgb(75 85 99) !important;
-  color: rgb(255 255 255) !important;
+  background-color: rgb(51 65 85) !important;
+  border-color: rgb(71 85 105) !important;
+  color: rgb(248 250 252) !important;
 }
 
 [data-radix-select-item] {
-  color: rgb(255 255 255) !important;
+  color: rgb(248 250 252) !important;
 }
 
 [data-radix-select-item]:hover {
-  background-color: rgb(75 85 99) !important;
-}
-
-/* Toast and dialog improvements for dark mode */
-[data-radix-toast-root] {
-  background-color: rgb(31 41 55) !important;
-  border-color: rgb(75 85 99) !important;
-  color: rgb(255 255 255) !important;
+  background-color: rgb(71 85 105) !important;
 }
 
 /* Tab improvements */
 [data-radix-tabs-trigger] {
-  color: rgb(156 163 175);
+  color: rgb(148 163 184) !important;
+  font-weight: 500;
 }
 
 [data-radix-tabs-trigger][data-state="active"] {
-  background-color: rgb(59 130 246) !important;
+  background-color: rgb(34 197 94) !important;
   color: rgb(255 255 255) !important;
+  font-weight: 600;
+}
+
+/* Dialog and modal improvements */
+[data-radix-dialog-content] {
+  background-color: rgb(30 41 59) !important;
+  border-color: rgb(71 85 105) !important;
+  color: rgb(248 250 252) !important;
 }
