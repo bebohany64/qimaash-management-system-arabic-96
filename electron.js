@@ -15,9 +15,9 @@ function createWindow() {
     show: false
   });
 
-  // في حالة التطوير، استخدم localhost
+  // في حالة التطوير، استخدم localhost مع المنفذ الصحيح
   if (process.env.NODE_ENV === 'development') {
-    win.loadURL('http://localhost:8080');
+    win.loadURL('http://localhost:5173'); // Vite's default port
     win.webContents.openDevTools();
   } else {
     // في الإنتاج، استخدم ملفات build
