@@ -39,7 +39,7 @@ const ReportsManager = () => {
     try {
       setIsLoading(true);
       
-      // Get total products
+      // Get total products with updated inventory value calculation
       const productsResult = await executeQuery('SELECT COUNT(*) as count, SUM(total * price) as total_value FROM products');
       const totalProducts = productsResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
       const totalInventoryValue = productsResult?.results?.[0]?.response?.result?.rows?.[0]?.[1] || 0;
@@ -48,9 +48,10 @@ const ReportsManager = () => {
       const suppliersResult = await executeQuery('SELECT COUNT(*) as count FROM suppliers');
       const totalSuppliers = suppliersResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
       
-      // Get total purchases
-      const purchasesResult = await executeQuery('SELECT COUNT(*) as count FROM purchases');
+      // Get total purchases with sum of purchase amounts
+      const purchasesResult = await executeQuery('SELECT COUNT(*) as count, SUM(total) as total_amount FROM purchases');
       const totalPurchases = purchasesResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
+      const totalPurchaseAmount = purchasesResult?.results?.[0]?.response?.result?.rows?.[0]?.[1] || 0;
       
       // Get low stock products (total < 10)
       const lowStockResult = await executeQuery('SELECT name, total, unit FROM products WHERE total < 10 ORDER BY total ASC');
@@ -60,7 +61,7 @@ const ReportsManager = () => {
         unit: String(row[2] || "")
       })) || [];
       
-      // Get recent purchases
+      // Get recent purchases with updated data
       const recentPurchasesResult = await executeQuery(`
         SELECT p.product_name, p.quantity, p.price, p.total, p.date, s.name as supplier_name
         FROM purchases p
@@ -77,9 +78,9 @@ const ReportsManager = () => {
         supplierName: String(row[5] || "")
       })) || [];
       
-      // Get category breakdown
+      // Get category breakdown with updated calculations
       const categoryResult = await executeQuery(`
-        SELECT category, COUNT(*) as count, SUM(total * price) as value
+        SELECT category, COUNT(*) as count, SUM(total * price) as value, SUM(total) as total_quantity
         FROM products
         GROUP BY category
         ORDER BY count DESC
@@ -87,7 +88,8 @@ const ReportsManager = () => {
       const categoryBreakdown = categoryResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
         category: String(row[0] || ""),
         count: parseInt(row[1] || 0),
-        value: parseFloat(row[2] || 0)
+        value: parseFloat(row[2] || 0),
+        totalQuantity: parseFloat(row[3] || 0)
       })) || [];
       
       setReportData({
@@ -229,7 +231,7 @@ const ReportsManager = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-white">
                   <BarChart3 className="h-5 w-5 text-orange-400" />
-                  قيمة المخزون
+                  قيمة المخزون المحدثة
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -239,11 +241,11 @@ const ReportsManager = () => {
             </Card>
           </div>
 
-          {/* Category Breakdown */}
+          {/* Category Breakdown with enhanced data */}
           {reportData.categoryBreakdown.length > 0 && (
             <Card className="bg-gray-800 border-gray-700">
               <CardHeader>
-                <CardTitle className="text-white">توزيع المنتجات حسب الفئة</CardTitle>
+                <CardTitle className="text-white">توزيع المنتجات حسب الفئة (محدث)</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -251,6 +253,7 @@ const ReportsManager = () => {
                     <TableRow className="border-gray-600">
                       <TableHead className="text-white">الفئة</TableHead>
                       <TableHead className="text-white">عدد المنتجات</TableHead>
+                      <TableHead className="text-white">إجمالي الكمية</TableHead>
                       <TableHead className="text-white">القيمة الإجمالية</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -259,6 +262,7 @@ const ReportsManager = () => {
                       <TableRow key={index} className="border-gray-600">
                         <TableCell className="text-white">{item.category}</TableCell>
                         <TableCell className="text-blue-400">{item.count}</TableCell>
+                        <TableCell className="text-yellow-400">{item.totalQuantity || 0}</TableCell>
                         <TableCell className="text-green-400">{item.value.toFixed(2)} ج.م</TableCell>
                       </TableRow>
                     ))}
@@ -274,7 +278,7 @@ const ReportsManager = () => {
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-white">
-                تقرير المخزون
+                تقرير المخزون المحدث
                 <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                   <Download className="h-4 w-4" />
                   تصدير
@@ -321,7 +325,7 @@ const ReportsManager = () => {
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-white">
-                التقرير المالي - المشتريات الأخيرة
+                التقرير المالي - المشتريات الأخيرة (مع تحديث المخزون)
                 <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                   <Download className="h-4 w-4" />
                   تصدير
@@ -335,7 +339,7 @@ const ReportsManager = () => {
                     <TableRow className="border-gray-600">
                       <TableHead className="text-white">المنتج</TableHead>
                       <TableHead className="text-white">المورد</TableHead>
-                      <TableHead className="text-white">الكمية</TableHead>
+                      <TableHead className="text-white">الكمية المشتراة</TableHead>
                       <TableHead className="text-white">السعر</TableHead>
                       <TableHead className="text-white">الإجمالي</TableHead>
                       <TableHead className="text-white">التاريخ</TableHead>
@@ -346,7 +350,7 @@ const ReportsManager = () => {
                       <TableRow key={index} className="border-gray-600">
                         <TableCell className="text-white">{purchase.productName}</TableCell>
                         <TableCell className="text-blue-400">{purchase.supplierName}</TableCell>
-                        <TableCell className="text-gray-300">{purchase.quantity}</TableCell>
+                        <TableCell className="text-yellow-400">{purchase.quantity}</TableCell>
                         <TableCell className="text-gray-300">{purchase.price.toFixed(2)} ج.م</TableCell>
                         <TableCell className="text-green-400">{purchase.total.toFixed(2)} ج.م</TableCell>
                         <TableCell className="text-gray-300">{purchase.date}</TableCell>

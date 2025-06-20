@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { executeQuery } from '@/utils/database';
+import { executeQuery, updateProductQuantityOnPurchase } from '@/utils/database';
 
 interface Purchase {
   id: number;
@@ -150,13 +149,23 @@ const PurchasesManager = () => {
       setIsLoading(true);
       const dateString = format(formData.date, "yyyy-MM-dd");
       const total = parseFloat(calculateTotal());
+      const purchasedQuantity = parseFloat(formData.quantity);
       
+      // إضافة المشترى في قاعدة البيانات
       await executeQuery(
         'INSERT INTO purchases (supplier_id, date, notes, product_name, quantity, price, total) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [formData.supplier, dateString, formData.notes, formData.product, formData.quantity, formData.price, total]
       );
       
-      toast.success("تم تسجيل المشترى بنجاح");
+      // تحديث كمية المنتج في جدول المنتجات
+      const updateSuccess = await updateProductQuantityOnPurchase(formData.product, purchasedQuantity);
+      
+      if (updateSuccess) {
+        toast.success("تم تسجيل المشترى بنجاح وتحديث كمية المنتج");
+      } else {
+        toast.success("تم تسجيل المشترى بنجاح، لكن لم يتم العثور على المنتج لتحديث الكمية");
+      }
+      
       await loadPurchases();
       
       setFormData({

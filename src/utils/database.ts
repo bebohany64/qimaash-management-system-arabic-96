@@ -74,6 +74,44 @@ export const executeQuery = async (sql: string, params: any[] = []) => {
   }
 };
 
+// دالة لتحديث كمية المنتج عند الشراء
+export const updateProductQuantityOnPurchase = async (productName: string, purchasedQuantity: number) => {
+  try {
+    console.log('Updating product quantity for:', productName, 'with quantity:', purchasedQuantity);
+    
+    // البحث عن المنتج بالاسم
+    const productResult = await executeQuery('SELECT id, previous_balance, total FROM products WHERE name = ?', [productName]);
+    
+    if (productResult?.results?.[0]?.response?.result?.rows?.length > 0) {
+      const productRow = productResult.results[0].response.result.rows[0];
+      const productId = parseInt(productRow[0]);
+      const currentPreviousBalance = parseFloat(productRow[1]) || 0;
+      const currentTotal = parseFloat(productRow[2]) || 0;
+      
+      // إضافة الكمية المشتراة إلى الرصيد السابق والإجمالي
+      const newPreviousBalance = currentPreviousBalance + purchasedQuantity;
+      const newTotal = currentTotal + purchasedQuantity;
+      
+      console.log('Updating product:', productId, 'New balance:', newPreviousBalance, 'New total:', newTotal);
+      
+      // تحديث المنتج في قاعدة البيانات
+      await executeQuery(
+        'UPDATE products SET previous_balance = ?, total = ? WHERE id = ?',
+        [newPreviousBalance, newTotal, productId]
+      );
+      
+      console.log('Product quantity updated successfully');
+      return true;
+    } else {
+      console.log('Product not found:', productName);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error updating product quantity:', error);
+    throw error;
+  }
+};
+
 // دوال إنشاء الجداول
 export const createTables = async () => {
   // أولاً، احذف الجدول القديم إذا كان موجوداً
