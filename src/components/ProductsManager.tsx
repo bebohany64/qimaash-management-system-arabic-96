@@ -182,14 +182,7 @@ const ProductsManager = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-gray-700 border-gray-600">
-              <TabsTrigger value="list" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300">
-                قائمة المنتجات
-              </TabsTrigger>
-              <TabsTrigger value="add" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300">
-                {editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
-              </TabsTrigger>
-            </TabsList>
+            
 
             <TabsContent value="list" className="space-y-6 mt-6">
               {/* Search Section */}
