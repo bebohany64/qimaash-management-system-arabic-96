@@ -37,7 +37,7 @@ const SuppliersManager = () => {
       
       if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
         const suppliersData = result.results[0].response.result.rows.map((row: any) => ({
-          id: row[0],
+          id: parseInt(row[0]),
           name: String(row[1] || ""),
           contactPerson: String(row[2] || ""),
           notes: String(row[3] || "")

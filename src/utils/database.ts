@@ -13,6 +13,14 @@ export const dbConfig: DatabaseConfig = {
   token: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NTAzODEwMDUsImlkIjoiZjdhMjJlN2MtNDYwYS00YmVhLWE5NGQtNWFlYjNlZTdkOGMzIiwicmlkIjoiODk1MmRjMzMtZTBlNi00MTdlLWE4ZDEtNDllNjM1Mzk3N2IzIn0.YwaGzTMEFuufazVP2FWGbUEYFnzr_KNv9acog4TsDBN_kDRlHflI0wILhjpJGXfTV1sbTMa1RvGe4kJplaPABQ"
 };
 
+// Helper function to extract value from database response
+const extractValue = (dbValue: any): string => {
+  if (dbValue && typeof dbValue === 'object' && dbValue.value !== undefined) {
+    return String(dbValue.value);
+  }
+  return String(dbValue || "");
+};
+
 // دالة أساسية للاتصال بقاعدة البيانات
 export const executeQuery = async (sql: string, params: any[] = []) => {
   try {
@@ -45,6 +53,15 @@ export const executeQuery = async (sql: string, params: any[] = []) => {
 
     const result = await response.json();
     console.log('Database query result:', result);
+    
+    // Process the result to extract actual values
+    if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
+      const processedRows = result.results[0].response.result.rows.map((row: any[]) => 
+        row.map((cell: any) => extractValue(cell))
+      );
+      result.results[0].response.result.rows = processedRows;
+    }
+    
     return result;
   } catch (error) {
     console.error('Database query error:', error);

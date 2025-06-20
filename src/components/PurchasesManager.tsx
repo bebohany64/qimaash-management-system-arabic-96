@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,25 +15,121 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { executeQuery } from '@/utils/database';
+
+interface Purchase {
+  id: number;
+  supplierId: number;
+  supplierName: string;
+  date: string;
+  notes: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  total: number;
+}
+
+interface Supplier {
+  id: number;
+  name: string;
+}
+
+interface Product {
+  id: number;
+  name: string;
+}
 
 const PurchasesManager = () => {
-  const [purchases, setPurchases] = useState([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddingPurchase, setIsAddingPurchase] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     supplier: "",
-    date: null,
+    date: null as Date | null,
     notes: "",
     product: "",
     quantity: "",
     price: ""
   });
 
-  const suppliers = [];
-  const products = [];
+  // Load suppliers from database
+  const loadSuppliers = async () => {
+    try {
+      const result = await executeQuery('SELECT id, name FROM suppliers ORDER BY name');
+      if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
+        const suppliersData = result.results[0].response.result.rows.map((row: any) => ({
+          id: parseInt(row[0]),
+          name: String(row[1] || "")
+        }));
+        setSuppliers(suppliersData);
+      }
+    } catch (error) {
+      console.error('Error loading suppliers:', error);
+    }
+  };
+
+  // Load products from database
+  const loadProducts = async () => {
+    try {
+      const result = await executeQuery('SELECT id, name FROM products ORDER BY name');
+      if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
+        const productsData = result.results[0].response.result.rows.map((row: any) => ({
+          id: parseInt(row[0]),
+          name: String(row[1] || "")
+        }));
+        setProducts(productsData);
+      }
+    } catch (error) {
+      console.error('Error loading products:', error);
+    }
+  };
+
+  // Load purchases from database
+  const loadPurchases = async () => {
+    try {
+      setIsLoading(true);
+      const result = await executeQuery(`
+        SELECT p.id, p.supplier_id, s.name as supplier_name, p.date, p.notes, 
+               p.product_name, p.quantity, p.price, p.total
+        FROM purchases p
+        LEFT JOIN suppliers s ON p.supplier_id = s.id
+        ORDER BY p.created_at DESC
+      `);
+      
+      if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
+        const purchasesData = result.results[0].response.result.rows.map((row: any) => ({
+          id: parseInt(row[0]),
+          supplierId: parseInt(row[1]),
+          supplierName: String(row[2] || ""),
+          date: String(row[3] || ""),
+          notes: String(row[4] || ""),
+          productName: String(row[5] || ""),
+          quantity: parseFloat(row[6]),
+          price: parseFloat(row[7]),
+          total: parseFloat(row[8])
+        }));
+        setPurchases(purchasesData);
+      }
+    } catch (error) {
+      console.error('Error loading purchases:', error);
+      toast.error('خطأ في تحميل المشتريات');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSuppliers();
+    loadProducts();
+    loadPurchases();
+  }, []);
 
   const filteredPurchases = purchases.filter(purchase =>
-    purchase.supplier?.includes(searchTerm)
+    purchase.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    purchase.productName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const calculateTotal = () => {
@@ -42,7 +138,7 @@ const PurchasesManager = () => {
     return (quantity * price).toFixed(2);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.supplier || !formData.date || !formData.product || !formData.quantity || !formData.price) {
@@ -50,31 +146,50 @@ const PurchasesManager = () => {
       return;
     }
 
-    const newPurchase = {
-      ...formData,
-      id: Date.now(),
-      quantity: parseFloat(formData.quantity),
-      price: parseFloat(formData.price),
-      total: parseFloat(calculateTotal())
-    };
-    
-    setPurchases([...purchases, newPurchase]);
-    toast.success("تم تسجيل المشترى بنجاح");
-    
-    setFormData({
-      supplier: "",
-      date: null,
-      notes: "",
-      product: "",
-      quantity: "",
-      price: ""
-    });
-    setIsAddingPurchase(false);
+    try {
+      setIsLoading(true);
+      const dateString = format(formData.date, "yyyy-MM-dd");
+      const total = parseFloat(calculateTotal());
+      
+      await executeQuery(
+        'INSERT INTO purchases (supplier_id, date, notes, product_name, quantity, price, total) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [formData.supplier, dateString, formData.notes, formData.product, formData.quantity, formData.price, total]
+      );
+      
+      toast.success("تم تسجيل المشترى بنجاح");
+      await loadPurchases();
+      
+      setFormData({
+        supplier: "",
+        date: null,
+        notes: "",
+        product: "",
+        quantity: "",
+        price: ""
+      });
+      setIsAddingPurchase(false);
+    } catch (error) {
+      console.error('Error saving purchase:', error);
+      toast.error('خطأ في حفظ المشترى');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDelete = (id) => {
-    setPurchases(purchases.filter(p => p.id !== id));
-    toast.success("تم حذف المشترى بنجاح");
+  const handleDelete = async (id: number) => {
+    if (!confirm('هل أنت متأكد من حذف هذا المشترى؟')) return;
+    
+    try {
+      setIsLoading(true);
+      await executeQuery('DELETE FROM purchases WHERE id = ?', [id]);
+      await loadPurchases();
+      toast.success("تم حذف المشترى بنجاح");
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      toast.error('خطأ في حذف المشترى');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -109,7 +224,7 @@ const PurchasesManager = () => {
                           <SelectItem value="no-suppliers" disabled>لا توجد موردين مسجلين</SelectItem>
                         ) : (
                           suppliers.map(supplier => (
-                            <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
+                            <SelectItem key={supplier.id} value={supplier.id.toString()}>{supplier.name}</SelectItem>
                           ))
                         )}
                       </SelectContent>
@@ -166,7 +281,7 @@ const PurchasesManager = () => {
                           <SelectItem value="no-products" disabled>لا توجد منتجات مسجلة</SelectItem>
                         ) : (
                           products.map(product => (
-                            <SelectItem key={product} value={product}>{product}</SelectItem>
+                            <SelectItem key={product.id} value={product.name}>{product.name}</SelectItem>
                           ))
                         )}
                       </SelectContent>
@@ -213,8 +328,8 @@ const PurchasesManager = () => {
                     <Button type="button" variant="outline" onClick={() => setIsAddingPurchase(false)} className="border-slate-600 text-slate-300 hover:bg-slate-700">
                       إلغاء
                     </Button>
-                    <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white">
-                      حفظ المشترى
+                    <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white" disabled={isLoading}>
+                      {isLoading ? "جاري الحفظ..." : "حفظ المشترى"}
                     </Button>
                   </div>
                 </form>
@@ -258,11 +373,9 @@ const PurchasesManager = () => {
               <TableBody>
                 {filteredPurchases.map((purchase) => (
                   <TableRow key={purchase.id} className="border-slate-700">
-                    <TableCell className="text-white">{purchase.supplier}</TableCell>
-                    <TableCell className="text-white">
-                      {purchase.date ? format(purchase.date, "yyyy/MM/dd", { locale: ar }) : "-"}
-                    </TableCell>
-                    <TableCell className="text-white">{purchase.product}</TableCell>
+                    <TableCell className="text-white">{purchase.supplierName}</TableCell>
+                    <TableCell className="text-white">{purchase.date}</TableCell>
+                    <TableCell className="text-white">{purchase.productName}</TableCell>
                     <TableCell className="text-white">{purchase.quantity}</TableCell>
                     <TableCell className="text-white">{purchase.price.toFixed(2)} ج.م</TableCell>
                     <TableCell className="font-medium text-green-400">
@@ -274,6 +387,7 @@ const PurchasesManager = () => {
                         variant="outline"
                         onClick={() => handleDelete(purchase.id)}
                         className="text-red-400 hover:text-red-300 border-slate-600 hover:bg-slate-700"
+                        disabled={isLoading}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -289,7 +403,7 @@ const PurchasesManager = () => {
           <CardContent className="text-center py-12">
             <ShoppingCart className="h-16 w-16 mx-auto mb-4 text-slate-600" />
             <p className="text-slate-400 text-lg">
-              لا توجد مشتريات مسجلة حتى الآن
+              {isLoading ? "جاري التحميل..." : "لا توجد مشتريات مسجلة حتى الآن"}
             </p>
           </CardContent>
         </Card>
