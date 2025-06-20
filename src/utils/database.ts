@@ -138,7 +138,7 @@ export const updateProductQuantityOnPurchase = async (productName: string, purch
   }
 };
 
-// دوال إنشاء الجداول - محسنة مع معالجة أفضل للأخطاء
+// دوال إنشاء الجداول - محسنة بدون إضافة بيانات تجريبية
 export const createTables = async () => {
   try {
     console.log('Starting table creation process...');
@@ -215,26 +215,7 @@ export const createTables = async () => {
     await executeQuery(createPurchasesTable);
     console.log('Purchases table created successfully');
 
-    console.log('All tables created successfully');
-    
-    // إضافة بعض البيانات التجريبية للاختبار
-    console.log('Adding sample data...');
-    
-    // إضافة مورد تجريبي
-    const supplierResult = await executeQuery(
-      'INSERT INTO suppliers (name, contact_person, notes) VALUES (?, ?, ?)',
-      ['مورد تجريبي', 'أحمد محمد', 'مورد للاختبار']
-    );
-    console.log('Sample supplier added:', supplierResult);
-    
-    // إضافة منتج تجريبي
-    const productResult = await executeQuery(
-      'INSERT INTO products (name, category, unit, price, previous_balance, outgoing, total) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ['قماش قطني', 'أقمشة', 'متر', 25.50, 100, 0, 100]
-    );
-    console.log('Sample product added:', productResult);
-    
-    console.log('Sample data added successfully');
+    console.log('All tables created successfully - no sample data added');
     
   } catch (error) {
     console.error('Error in table creation process:', error);

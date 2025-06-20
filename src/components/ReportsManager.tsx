@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -127,12 +128,8 @@ const ReportsManager = () => {
   };
 
   useEffect(() => {
-    // انتظار أطول للتأكد من إنشاء الجداول وإدخال البيانات
-    const timer = setTimeout(() => {
-      loadReportData();
-    }, 4000);
-    
-    return () => clearTimeout(timer);
+    // تحميل فوري للتقارير بدون تأخير
+    loadReportData();
   }, []);
 
   const handleUpdateReport = () => {
