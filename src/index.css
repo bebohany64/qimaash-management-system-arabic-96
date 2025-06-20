@@ -7,42 +7,42 @@
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 17 24 39;
+    --foreground: 243 244 246;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 31 41 55;
+    --card-foreground: 243 244 246;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 31 41 55;
+    --popover-foreground: 243 244 246;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 59 130 246;
+    --primary-foreground: 255 255 255;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 75 85 99;
+    --secondary-foreground: 243 244 246;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 55 65 81;
+    --muted-foreground: 156 163 175;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 59 130 246;
+    --accent-foreground: 255 255 255;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 75 85 99;
+    --input: 55 65 81;
+    --ring: 59 130 246;
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 17 24 39;
+    --sidebar-foreground: 243 244 246;
+    --sidebar-primary: 59 130 246;
+    --sidebar-primary-foreground: 255 255 255;
+    --sidebar-accent: 31 41 55;
+    --sidebar-accent-foreground: 243 244 246;
+    --sidebar-border: 75 85 99;
+    --sidebar-ring: 59 130 246;
   }
 }
 
@@ -53,6 +53,8 @@
 
   body {
     @apply bg-background text-foreground;
+    background-color: rgb(17 24 39);
+    color: rgb(243 244 246);
   }
 }
 
@@ -62,8 +64,71 @@ html {
 }
 
 body {
+  background-color: rgb(17 24 39) !important;
+  color: rgb(243 244 246) !important;
+}
+
+/* Enhanced dark mode for better text visibility */
+.dark, [data-theme="dark"] {
+  --background: 17 24 39;
+  --foreground: 243 244 246;
+  --card: 31 41 55;
+  --card-foreground: 243 244 246;
+  --popover: 31 41 55;
+  --popover-foreground: 243 244 246;
+  --primary: 59 130 246;
+  --primary-foreground: 255 255 255;
+  --secondary: 75 85 99;
+  --secondary-foreground: 243 244 246;
+  --muted: 55 65 81;
+  --muted-foreground: 156 163 175;
+  --accent: 59 130 246;
+  --accent-foreground: 255 255 255;
+  --destructive: 239 68 68;
+  --destructive-foreground: 255 255 255;
+  --border: 75 85 99;
+  --input: 55 65 81;
+  --ring: 59 130 246;
+}
+
+/* Improved text contrast for dark mode */
+h1, h2, h3, h4, h5, h6 {
+  color: rgb(255 255 255) !important;
+}
+
+p, span, div {
+  color: rgb(229 231 235);
+}
+
+/* Enhanced form inputs for dark mode */
+input, select, textarea {
+  background-color: rgb(55 65 81) !important;
+  border-color: rgb(75 85 99) !important;
+  color: rgb(255 255 255) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgb(156 163 175) !important;
+}
+
+/* Better button styling for dark mode */
+button {
+  transition: all 0.3s ease;
+}
+
+/* Improved table styling for dark mode */
+table {
   background-color: rgb(31 41 55);
-  color: rgb(243 244 246);
+}
+
+th {
+  background-color: rgb(55 65 81) !important;
+  color: rgb(209 213 219) !important;
+}
+
+td {
+  color: rgb(229 231 235) !important;
+  border-color: rgb(75 85 99) !important;
 }
 
 /* Custom Animation Classes */
@@ -143,10 +208,11 @@ button, input, select, textarea {
   transition: all 0.3s ease;
 }
 
-/* Enhanced focus states */
+/* Enhanced focus states for dark mode */
 input:focus, select:focus, textarea:focus {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  border-color: rgb(59, 130, 246);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+  border-color: rgb(59, 130, 246) !important;
+  outline: none;
 }
 
 /* Custom scrollbar for dark mode */
@@ -155,7 +221,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgb(31, 41, 55);
+  background: rgb(17, 24, 39);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -167,30 +233,45 @@ input:focus, select:focus, textarea:focus {
   background: rgb(107, 114, 128);
 }
 
-/* Enhanced Dark Mode Styling */
-.dark, [data-theme="dark"] {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
-}
-
 /* Gradient backgrounds for dark mode */
 .bg-gradient-to-br {
   background: linear-gradient(to bottom right, rgb(17 24 39), rgb(31 41 55)) !important;
+}
+
+/* Improved card styling */
+.card {
+  background-color: rgb(31 41 55) !important;
+  border-color: rgb(75 85 99) !important;
+}
+
+/* Select dropdown styling for dark mode */
+[data-radix-select-content] {
+  background-color: rgb(55 65 81) !important;
+  border-color: rgb(75 85 99) !important;
+  color: rgb(255 255 255) !important;
+}
+
+[data-radix-select-item] {
+  color: rgb(255 255 255) !important;
+}
+
+[data-radix-select-item]:hover {
+  background-color: rgb(75 85 99) !important;
+}
+
+/* Toast and dialog improvements for dark mode */
+[data-radix-toast-root] {
+  background-color: rgb(31 41 55) !important;
+  border-color: rgb(75 85 99) !important;
+  color: rgb(255 255 255) !important;
+}
+
+/* Tab improvements */
+[data-radix-tabs-trigger] {
+  color: rgb(156 163 175);
+}
+
+[data-radix-tabs-trigger][data-state="active"] {
+  background-color: rgb(59 130 246) !important;
+  color: rgb(255 255 255) !important;
 }
