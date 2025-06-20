@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, BarChart3, Download, Package, Users, ShoppingCart } from "lucide-react";
 import { executeQuery } from '@/utils/database';
-import { toast } from 'react-toastify';
+import { useToast } from "@/hooks/use-toast";
 
 interface ReportData {
   totalProducts: number;
@@ -21,6 +21,7 @@ interface ReportData {
 }
 
 const ReportsManager = () => {
+  const { toast } = useToast();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("الكل");
@@ -115,7 +116,11 @@ const ReportsManager = () => {
       
     } catch (error) {
       console.error('Error loading report data:', error);
-      toast.error('خطأ في تحميل بيانات التقارير: ' + error.message);
+      toast({
+        title: "خطأ في تحميل البيانات",
+        description: 'خطأ في تحميل بيانات التقارير: ' + error.message,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
