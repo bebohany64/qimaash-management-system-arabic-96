@@ -76,6 +76,9 @@ export const executeQuery = async (sql: string, params: any[] = []) => {
 
 // دوال إنشاء الجداول
 export const createTables = async () => {
+  // أولاً، احذف الجدول القديم إذا كان موجوداً
+  const dropOldTable = `DROP TABLE IF EXISTS products`;
+  
   const createProductsTable = `
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,6 +120,9 @@ export const createTables = async () => {
   `;
 
   try {
+    console.log('Dropping old products table...');
+    await executeQuery(dropOldTable);
+    console.log('Creating new products table...');
     await executeQuery(createProductsTable);
     await executeQuery(createSuppliersTable);
     await executeQuery(createPurchasesTable);
