@@ -56,16 +56,22 @@ const ProductsManager = () => {
         
         const productsData = rows.map((row: any[], index: number) => {
           console.log(`Processing row ${index}:`, row);
+          
+          // حساب الإجمالي بطريقة احترافية: الرصيد السابق + المشتريات - المنصرف
+          const previousBalance = Number(row[6]) || 0;
+          const outgoing = Number(row[7]) || 0;
+          const calculatedTotal = previousBalance - outgoing;
+          
           return {
             id: Number(row[0]) || 0,
             name: String(row[1] || ""),
             category: String(row[2] || ""),
-            customCategory: row[3] ? String(row[3]) : undefined,
+            customCategory: row[3] && row[3] !== 'null' ? String(row[3]) : undefined,
             unit: String(row[4] || ""),
             price: Number(row[5]) || 0,
-            previousBalance: Number(row[6]) || 0,
-            outgoing: Number(row[7]) || 0,
-            total: Number(row[8]) || 0
+            previousBalance: previousBalance,
+            outgoing: outgoing,
+            total: calculatedTotal
           };
         });
         
@@ -124,7 +130,8 @@ const ProductsManager = () => {
     setIsLoading(true);
     try {
       const finalCategory = formData.category === "أخرى" ? formData.customCategory : formData.category;
-      const total = formData.previousBalance - formData.outgoing;
+      // حساب احترافي للإجمالي
+      const calculatedTotal = formData.previousBalance - formData.outgoing;
       
       console.log('Submitting product data:', {
         name: formData.name,
@@ -134,20 +141,20 @@ const ProductsManager = () => {
         price: formData.price,
         previousBalance: formData.previousBalance,
         outgoing: formData.outgoing,
-        total: total
+        total: calculatedTotal
       });
 
       if (editingProduct) {
         const updateResult = await executeQuery(
           'UPDATE products SET name = ?, category = ?, custom_category = ?, unit = ?, price = ?, previous_balance = ?, outgoing = ?, total = ? WHERE id = ?',
-          [formData.name, finalCategory, formData.category === "أخرى" ? formData.customCategory : null, formData.unit, formData.price, formData.previousBalance, formData.outgoing, total, editingProduct.id]
+          [formData.name, finalCategory, formData.category === "أخرى" ? formData.customCategory : null, formData.unit, formData.price, formData.previousBalance, formData.outgoing, calculatedTotal, editingProduct.id]
         );
         console.log('Update result:', updateResult);
         toast.success("تم تحديث المنتج بنجاح");
       } else {
         const insertResult = await executeQuery(
           'INSERT INTO products (name, category, custom_category, unit, price, previous_balance, outgoing, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [formData.name, finalCategory, formData.category === "أخرى" ? formData.customCategory : null, formData.unit, formData.price, formData.previousBalance, formData.outgoing, total]
+          [formData.name, finalCategory, formData.category === "أخرى" ? formData.customCategory : null, formData.unit, formData.price, formData.previousBalance, formData.outgoing, calculatedTotal]
         );
         console.log('Insert result:', insertResult);
         toast.success("تم إضافة المنتج بنجاح");
@@ -201,11 +208,6 @@ const ProductsManager = () => {
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // حساب الإحصائيات
-  const totalProducts = products.length;
-  const lowStockProducts = products.filter(p => p.total <= 5).length;
-  const totalValue = products.reduce((sum, p) => sum + (p.total * p.price), 0);
-
   return (
     <div className="space-y-6 animate-fade-in">
       <Card className="bg-gray-800 border-gray-700">
@@ -253,36 +255,6 @@ const ProductsManager = () => {
                 </div>
               </div>
 
-              {/* Statistics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="bg-blue-600 border-blue-500">
-                  <CardContent className="p-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-white">{totalProducts}</div>
-                      <div className="text-blue-100">إجمالي المنتجات</div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="bg-red-600 border-red-500">
-                  <CardContent className="p-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-white">{lowStockProducts}</div>
-                      <div className="text-red-100">منتجات ناقصة</div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="bg-yellow-600 border-yellow-500">
-                  <CardContent className="p-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-white">{totalValue.toFixed(2)}</div>
-                      <div className="text-yellow-100">القيمة الإجمالية (جنيه)</div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
               {/* Products Table */}
               <Card className="bg-gray-700 border-gray-600">
                 <CardHeader>
@@ -299,7 +271,7 @@ const ProductsManager = () => {
                           <TableHead className="text-gray-200 font-semibold">السعر (جنيه)</TableHead>
                           <TableHead className="text-gray-200 font-semibold">الرصيد السابق</TableHead>
                           <TableHead className="text-gray-200 font-semibold">المنصرف</TableHead>
-                          <TableHead className="text-gray-200 font-semibold">الإجمالي</TableHead>
+                          <TableHead className="text-gray-200 font-semibold w-32">الإجمالي المتاح</TableHead>
                           <TableHead className="text-gray-200 font-semibold">الإجراءات</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -330,8 +302,12 @@ const ProductsManager = () => {
                               <TableCell className="text-green-400 font-bold">{product.price.toFixed(2)}</TableCell>
                               <TableCell className="text-blue-400 font-bold">{product.previousBalance}</TableCell>
                               <TableCell className="text-red-400 font-bold">{product.outgoing}</TableCell>
-                              <TableCell className={`font-bold ${product.total >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                {product.total}
+                              <TableCell className="w-32">
+                                <div className={`text-center p-2 rounded-lg border-2 font-bold text-lg ${
+                                  product.total >= 0 ? 'text-green-400 border-green-400 bg-green-900/20' : 'text-red-400 border-red-400 bg-red-900/20'
+                                }`}>
+                                  {product.total}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex space-x-2 space-x-reverse">
@@ -490,13 +466,20 @@ const ProductsManager = () => {
                       </div>
                     </div>
 
-                    {/* Total (Read-only) - عرض الأرقام فقط */}
-                    <div className="bg-gray-800 p-4 rounded-lg border border-gray-600">
-                      <Label className="text-gray-300 font-medium">الإجمالي المتاح</Label>
-                      <div className={`text-2xl font-bold mt-2 ${
-                        formData.previousBalance - formData.outgoing >= 0 ? 'text-yellow-400' : 'text-red-400'
-                      }`}>
-                        {formData.previousBalance - formData.outgoing}
+                    {/* Total (Read-only) - عرض الأرقام فقط بشكل احترافي */}
+                    <div className="bg-gray-800 p-6 rounded-lg border border-gray-600">
+                      <Label className="text-gray-300 font-medium text-lg mb-4 block">الإجمالي المتاح (حساب تلقائي)</Label>
+                      <div className="flex items-center justify-center">
+                        <div className={`text-4xl font-bold p-4 rounded-lg border-2 min-w-[120px] text-center ${
+                          formData.previousBalance - formData.outgoing >= 0 
+                            ? 'text-green-400 border-green-400 bg-green-900/20' 
+                            : 'text-red-400 border-red-400 bg-red-900/20'
+                        }`}>
+                          {formData.previousBalance - formData.outgoing}
+                        </div>
+                      </div>
+                      <div className="text-center text-gray-400 text-sm mt-2">
+                        الحساب: الرصيد السابق ({formData.previousBalance}) - المنصرف ({formData.outgoing}) = {formData.previousBalance - formData.outgoing}
                       </div>
                     </div>
 
