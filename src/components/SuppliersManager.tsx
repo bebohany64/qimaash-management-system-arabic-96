@@ -38,9 +38,9 @@ const SuppliersManager = () => {
       if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
         const suppliersData = result.results[0].response.result.rows.map((row: any) => ({
           id: row[0],
-          name: row[1] || "",
-          contactPerson: row[2] || "",
-          notes: row[3] || ""
+          name: String(row[1] || ""),
+          contactPerson: String(row[2] || ""),
+          notes: String(row[3] || "")
         }));
         setSuppliers(suppliersData);
         console.log('Processed suppliers:', suppliersData);
@@ -60,10 +60,12 @@ const SuppliersManager = () => {
     loadSuppliers();
   }, []);
 
-  const filteredSuppliers = suppliers.filter(supplier =>
-    (supplier.name && supplier.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (supplier.contactPerson && supplier.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredSuppliers = suppliers.filter(supplier => {
+    const name = String(supplier.name || "").toLowerCase();
+    const contactPerson = String(supplier.contactPerson || "").toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return name.includes(search) || contactPerson.includes(search);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
