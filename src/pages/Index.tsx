@@ -21,6 +21,11 @@ const Index = () => {
               <Package className="h-8 w-8 text-green-500" />
               <h1 className="text-2xl font-bold text-white">نظام إدارة مخازن الأقمشة</h1>
             </div>
+            <div className="text-right">
+              <h2 className="text-lg font-semibold text-yellow-400" style={{ fontFamily: 'Cairo, sans-serif' }}>
+                وزارة العمل - مركز التدريب 2025
+              </h2>
+            </div>
           </div>
         </div>
       </header>
@@ -38,7 +43,7 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="suppliers" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white text-slate-300"
+              className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white text-slate-300"
             >
               <Users className="h-4 w-4" />
               الموردين
@@ -52,14 +57,14 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="reports" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white text-slate-300"
+              className="flex items-center gap-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-slate-900 text-slate-300"
             >
               <FileText className="h-4 w-4" />
               التقارير
             </TabsTrigger>
             <TabsTrigger 
               value="print" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white text-slate-300"
+              className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white text-slate-300"
             >
               <Printer className="h-4 w-4" />
               الطباعة
