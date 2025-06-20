@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ interface Supplier {
 interface Product {
   id: number;
   name: string;
+  price: number;
 }
 
 const PurchasesManager = () => {
@@ -73,11 +75,12 @@ const PurchasesManager = () => {
   // Load products from database
   const loadProducts = async () => {
     try {
-      const result = await executeQuery('SELECT id, name FROM products ORDER BY name');
+      const result = await executeQuery('SELECT id, name, price FROM products ORDER BY name');
       if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
         const productsData = result.results[0].response.result.rows.map((row: any) => ({
           id: parseInt(row[0]),
-          name: String(row[1] || "")
+          name: String(row[1] || ""),
+          price: parseFloat(row[2] || 0)
         }));
         setProducts(productsData);
       }
@@ -134,7 +137,17 @@ const PurchasesManager = () => {
   const calculateTotal = () => {
     const quantity = parseFloat(formData.quantity) || 0;
     const price = parseFloat(formData.price) || 0;
-    return (quantity * price).toFixed(2);
+    return quantity * price;
+  };
+
+  // Handle product selection and auto-fill price
+  const handleProductChange = (productName: string) => {
+    const selectedProduct = products.find(p => p.name === productName);
+    setFormData({
+      ...formData,
+      product: productName,
+      price: selectedProduct ? selectedProduct.price.toString() : ""
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,7 +161,7 @@ const PurchasesManager = () => {
     try {
       setIsLoading(true);
       const dateString = format(formData.date, "yyyy-MM-dd");
-      const total = parseFloat(calculateTotal());
+      const total = calculateTotal();
       const purchasedQuantity = parseFloat(formData.quantity);
       
       // إضافة المشترى في قاعدة البيانات
@@ -281,7 +294,7 @@ const PurchasesManager = () => {
 
                   <div>
                     <Label htmlFor="product" className="text-slate-200">اختر المنتج *</Label>
-                    <Select value={formData.product} onValueChange={(value) => setFormData({...formData, product: value})}>
+                    <Select value={formData.product} onValueChange={handleProductChange}>
                       <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                         <SelectValue placeholder="اختر المنتج" />
                       </SelectTrigger>
@@ -290,7 +303,9 @@ const PurchasesManager = () => {
                           <SelectItem value="no-products" disabled>لا توجد منتجات مسجلة</SelectItem>
                         ) : (
                           products.map(product => (
-                            <SelectItem key={product.id} value={product.name}>{product.name}</SelectItem>
+                            <SelectItem key={product.id} value={product.name}>
+                              {product.name} - {product.price} ج.م
+                            </SelectItem>
                           ))
                         )}
                       </SelectContent>
@@ -327,7 +342,7 @@ const PurchasesManager = () => {
                   <div>
                     <Label className="text-slate-200">الإجمالي</Label>
                     <Input
-                      value={`${calculateTotal()} ج.م`}
+                      value={calculateTotal().toFixed(2)}
                       disabled
                       className="bg-slate-600 text-white font-bold text-lg"
                     />
@@ -386,9 +401,9 @@ const PurchasesManager = () => {
                     <TableCell className="text-white">{purchase.date}</TableCell>
                     <TableCell className="text-white">{purchase.productName}</TableCell>
                     <TableCell className="text-white">{purchase.quantity}</TableCell>
-                    <TableCell className="text-white">{purchase.price.toFixed(2)} ج.م</TableCell>
+                    <TableCell className="text-white">{purchase.price.toFixed(2)}</TableCell>
                     <TableCell className="font-medium text-green-400">
-                      {purchase.total.toFixed(2)} ج.م
+                      {purchase.total.toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <Button
