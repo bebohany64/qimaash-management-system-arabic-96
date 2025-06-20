@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, BarChart3, Download, Package, Users, ShoppingCart } from "lucide-react";
 import { executeQuery } from '@/utils/database';
@@ -14,10 +14,10 @@ interface ReportData {
   totalProducts: number;
   totalSuppliers: number;
   totalPurchases: number;
-  totalValue: number;
-  productReports: any[];
-  purchaseReports: any[];
-  supplierReports: any[];
+  totalInventoryValue: number;
+  lowStockProducts: any[];
+  recentPurchases: any[];
+  categoryBreakdown: any[];
 }
 
 const ReportsManager = () => {
@@ -25,100 +25,94 @@ const ReportsManager = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("الكل");
-  const [reportType, setReportType] = useState("شامل");
   const [reportData, setReportData] = useState<ReportData>({
     totalProducts: 0,
     totalSuppliers: 0,
     totalPurchases: 0,
-    totalValue: 0,
-    productReports: [],
-    purchaseReports: [],
-    supplierReports: []
+    totalInventoryValue: 0,
+    lowStockProducts: [],
+    recentPurchases: [],
+    categoryBreakdown: []
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  // تحميل التقارير فورياً عند تحميل المكون
   const loadReportData = async () => {
     try {
       setIsLoading(true);
       console.log('Loading report data...');
-
-      // استعلامات متوازية لتسريع التحميل
-      const [productsResult, suppliersResult, purchasesResult] = await Promise.all([
-        executeQuery('SELECT COUNT(*) as count FROM products'),
-        executeQuery('SELECT COUNT(*) as count FROM suppliers'),
-        executeQuery('SELECT COUNT(*) as count, SUM(total_amount) as total FROM purchases')
-      ]);
-
-      console.log('Products result:', productsResult);
-      console.log('Suppliers result:', suppliersResult);
-      console.log('Purchases result:', purchasesResult);
-
-      let totalProducts = 0;
-      let totalSuppliers = 0;
-      let totalPurchases = 0;
-      let totalValue = 0;
-
-      // معالجة نتائج المنتجات
-      if (productsResult?.results?.[0]?.response?.result?.rows?.[0]) {
-        totalProducts = parseInt(productsResult.results[0].response.result.rows[0][0]) || 0;
-      }
-
-      // معالجة نتائج الموردين
-      if (suppliersResult?.results?.[0]?.response?.result?.rows?.[0]) {
-        totalSuppliers = parseInt(suppliersResult.results[0].response.result.rows[0][0]) || 0;
-      }
-
-      // معالجة نتائج المشتريات
-      if (purchasesResult?.results?.[0]?.response?.result?.rows?.[0]) {
-        totalPurchases = parseInt(purchasesResult.results[0].response.result.rows[0][0]) || 0;
-        totalValue = parseFloat(purchasesResult.results[0].response.result.rows[0][1]) || 0;
-      }
-
-      // تحميل التقارير التفصيلية
-      const [productDetailsResult, purchaseDetailsResult, supplierDetailsResult] = await Promise.all([
-        executeQuery('SELECT name, category, total_quantity, price FROM products ORDER BY total_quantity DESC LIMIT 10'),
-        executeQuery('SELECT p.product_name, p.quantity, p.unit_price, p.total_amount, p.created_at FROM purchases p ORDER BY p.created_at DESC LIMIT 10'),
-        executeQuery('SELECT name, contact_person FROM suppliers ORDER BY created_at DESC LIMIT 10')
-      ]);
-
-      const productReports = productDetailsResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
+      
+      // Get total products with updated inventory value calculation
+      const productsResult = await executeQuery('SELECT COUNT(*) as count, SUM(total * price) as total_value FROM products');
+      console.log('Products result for reports:', productsResult);
+      
+      const totalProducts = productsResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
+      const totalInventoryValue = productsResult?.results?.[0]?.response?.result?.rows?.[0]?.[1] || 0;
+      
+      // Get total suppliers
+      const suppliersResult = await executeQuery('SELECT COUNT(*) as count FROM suppliers');
+      console.log('Suppliers result for reports:', suppliersResult);
+      const totalSuppliers = suppliersResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
+      
+      // Get total purchases with sum of purchase amounts
+      const purchasesResult = await executeQuery('SELECT COUNT(*) as count, SUM(total) as total_amount FROM purchases');
+      console.log('Purchases result for reports:', purchasesResult);
+      const totalPurchases = purchasesResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
+      const totalPurchaseAmount = purchasesResult?.results?.[0]?.response?.result?.rows?.[0]?.[1] || 0;
+      
+      // Get low stock products (total < 10)
+      const lowStockResult = await executeQuery('SELECT name, total, unit FROM products WHERE total < 10 ORDER BY total ASC');
+      console.log('Low stock result for reports:', lowStockResult);
+      const lowStockProducts = lowStockResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
         name: String(row[0] || ""),
-        category: String(row[1] || ""),
-        quantity: parseFloat(row[2]) || 0,
-        price: parseFloat(row[3]) || 0,
-        totalValue: (parseFloat(row[2]) || 0) * (parseFloat(row[3]) || 0)
+        total: parseFloat(row[1]) || 0,
+        unit: String(row[2] || "")
       })) || [];
-
-      const purchaseReports = purchaseDetailsResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
+      
+      // Get recent purchases with updated data
+      const recentPurchasesResult = await executeQuery(`
+        SELECT p.product_name, p.quantity, p.price, p.total, p.date, s.name as supplier_name
+        FROM purchases p
+        LEFT JOIN suppliers s ON p.supplier_id = s.id
+        ORDER BY p.created_at DESC
+        LIMIT 10
+      `);
+      console.log('Recent purchases result for reports:', recentPurchasesResult);
+      const recentPurchases = recentPurchasesResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
         productName: String(row[0] || ""),
         quantity: parseFloat(row[1]) || 0,
-        unitPrice: parseFloat(row[2]) || 0,
-        totalAmount: parseFloat(row[3]) || 0,
-        date: String(row[4] || "")
+        price: parseFloat(row[2]) || 0,
+        total: parseFloat(row[3]) || 0,
+        date: String(row[4] || ""),
+        supplierName: String(row[5] || "غير محدد")
       })) || [];
-
-      const supplierReports = supplierDetailsResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
-        name: String(row[0] || ""),
-        contactPerson: String(row[1] || "")
+      
+      // Get category breakdown with updated calculations
+      const categoryResult = await executeQuery(`
+        SELECT category, COUNT(*) as count, SUM(total * price) as value, SUM(total) as total_quantity
+        FROM products
+        GROUP BY category
+        ORDER BY count DESC
+      `);
+      console.log('Category result for reports:', categoryResult);
+      const categoryBreakdown = categoryResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
+        category: String(row[0] || ""),
+        count: parseInt(row[1]) || 0,
+        value: parseFloat(row[2]) || 0,
+        totalQuantity: parseFloat(row[3]) || 0
       })) || [];
-
-      setReportData({
-        totalProducts,
-        totalSuppliers,
-        totalPurchases,
-        totalValue,
-        productReports,
-        purchaseReports,
-        supplierReports
-      });
-
-      console.log('Report data loaded successfully:', {
-        totalProducts,
-        totalSuppliers,
-        totalPurchases,
-        totalValue
-      });
+      
+      const newReportData = {
+        totalProducts: parseInt(totalProducts) || 0,
+        totalSuppliers: parseInt(totalSuppliers) || 0,
+        totalPurchases: parseInt(totalPurchases) || 0,
+        totalInventoryValue: parseFloat(totalInventoryValue) || 0,
+        lowStockProducts,
+        recentPurchases,
+        categoryBreakdown
+      };
+      
+      console.log('Final report data:', newReportData);
+      setReportData(newReportData);
       
     } catch (error) {
       console.error('Error loading report data:', error);
@@ -132,253 +126,272 @@ const ReportsManager = () => {
     }
   };
 
-  // تحميل فوري عند تحميل المكون
   useEffect(() => {
-    loadReportData();
+    // انتظار أطول للتأكد من إنشاء الجداول وإدخال البيانات
+    const timer = setTimeout(() => {
+      loadReportData();
+    }, 4000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
-  // تحديث فوري عند تغيير المرشحات
-  useEffect(() => {
-    if (dateFrom || dateTo || selectedCategory !== "الكل" || reportType !== "شامل") {
-      loadReportData();
-    }
-  }, [dateFrom, dateTo, selectedCategory, reportType]);
+  const handleUpdateReport = () => {
+    loadReportData();
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header Card */}
-      <Card className="animate-fade-in bg-slate-800 border-slate-700">
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <Card className="bg-gray-800 border-gray-700">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
-            <FileText className="h-5 w-5 text-yellow-500" />
+            <FileText className="h-5 w-5" />
             التقارير والإحصائيات
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="dateFrom" className="text-slate-200">من تاريخ</Label>
+              <Label htmlFor="dateFrom" className="text-gray-300">من تاريخ</Label>
               <Input
                 id="dateFrom"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white"
+                className="bg-gray-700 border-gray-600 text-white"
               />
             </div>
-            
             <div>
-              <Label htmlFor="dateTo" className="text-slate-200">إلى تاريخ</Label>
+              <Label htmlFor="dateTo" className="text-gray-300">إلى تاريخ</Label>
               <Input
                 id="dateTo"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white"
+                className="bg-gray-700 border-gray-600 text-white"
               />
             </div>
-
             <div>
-              <Label className="text-slate-200">الفئة</Label>
+              <Label htmlFor="category" className="text-gray-300">الفئة</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                  <SelectValue placeholder="اختر الفئة" />
+                <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                  <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="الكل">الكل</SelectItem>
+                <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectItem value="الكل">جميع الفئات</SelectItem>
                   <SelectItem value="أقمشة">أقمشة</SelectItem>
-                  <SelectItem value="خامات">خامات</SelectItem>
-                  <SelectItem value="أدوات">أدوات</SelectItem>
+                  <SelectItem value="خيوط">خيوط</SelectItem>
+                  <SelectItem value="اكسسوارات">اكسسوارات</SelectItem>
+                  <SelectItem value="منتجات نهائية">منتجات نهائية</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            <div>
-              <Label className="text-slate-200">نوع التقرير</Label>
-              <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                  <SelectValue placeholder="اختر نوع التقرير" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="شامل">تقرير شامل</SelectItem>
-                  <SelectItem value="منتجات">المنتجات فقط</SelectItem>
-                  <SelectItem value="مشتريات">المشتريات فقط</SelectItem>
-                  <SelectItem value="موردين">الموردين فقط</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-end">
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={handleUpdateReport}
+                disabled={isLoading}
+              >
+                <BarChart3 className="h-4 w-4 ml-2" />
+                {isLoading ? "جاري التحديث..." : "تحديث التقرير"}
+              </Button>
             </div>
           </div>
-
-          <Button
-            onClick={loadReportData}
-            className="bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-slate-900 font-bold transition-all duration-200 shadow-lg hover:shadow-yellow-500/25"
-            disabled={isLoading}
-          >
-            <BarChart3 className="h-4 w-4 ml-2" />
-            {isLoading ? "جاري التحديث..." : "تحديث التقرير"}
-          </Button>
         </CardContent>
       </Card>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="animate-scale-in bg-gradient-to-br from-green-600 to-green-700 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100">إجمالي المنتجات</p>
-                <p className="text-3xl font-bold">{reportData.totalProducts}</p>
-              </div>
-              <Package className="h-12 w-12 text-green-200" />
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="summary" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 bg-gray-800 border-gray-700">
+          <TabsTrigger value="summary" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300">ملخص عام</TabsTrigger>
+          <TabsTrigger value="inventory" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300">تقرير المخزون</TabsTrigger>
+          <TabsTrigger value="financial" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300">التقرير المالي</TabsTrigger>
+        </TabsList>
 
-        <Card className="animate-scale-in bg-gradient-to-br from-blue-600 to-blue-700 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100">إجمالي الموردين</p>
-                <p className="text-3xl font-bold">{reportData.totalSuppliers}</p>
-              </div>
-              <Users className="h-12 w-12 text-blue-200" />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Summary Report */}
+        <TabsContent value="summary" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="bg-gray-800 border-gray-700 hover:shadow-lg transition-shadow animate-scale-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Package className="h-5 w-5 text-blue-400" />
+                  إجمالي المنتجات
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-400">{reportData.totalProducts}</div>
+                <div className="text-sm text-gray-400">منتج</div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gray-800 border-gray-700 hover:shadow-lg transition-shadow animate-scale-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Users className="h-5 w-5 text-green-400" />
+                  الموردين
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-400">{reportData.totalSuppliers}</div>
+                <div className="text-sm text-gray-400">مورد</div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gray-800 border-gray-700 hover:shadow-lg transition-shadow animate-scale-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <ShoppingCart className="h-5 w-5 text-purple-400" />
+                  المشتريات
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-400">{reportData.totalPurchases}</div>
+                <div className="text-sm text-gray-400">عملية شراء</div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gray-800 border-gray-700 hover:shadow-lg transition-shadow animate-scale-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <BarChart3 className="h-5 w-5 text-orange-400" />
+                  قيمة المخزون
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-400">{reportData.totalInventoryValue.toFixed(2)}</div>
+                <div className="text-sm text-gray-400">جنيه مصري</div>
+              </CardContent>
+            </Card>
+          </div>
 
-        <Card className="animate-scale-in bg-gradient-to-br from-yellow-600 to-yellow-700 text-slate-900">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-yellow-800">إجمالي المشتريات</p>
-                <p className="text-3xl font-bold">{reportData.totalPurchases}</p>
-              </div>
-              <ShoppingCart className="h-12 w-12 text-yellow-800" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="animate-scale-in bg-gradient-to-br from-purple-600 to-purple-700 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100">القيمة الإجمالية</p>
-                <p className="text-2xl font-bold">{reportData.totalValue.toLocaleString('ar-EG')} ر.س</p>
-              </div>
-              <FileText className="h-12 w-12 text-purple-200" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Detailed Reports */}
-      {(reportType === "شامل" || reportType === "منتجات") && (
-        <Card className="animate-fade-in bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white">تقرير المنتجات</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {reportData.productReports.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-slate-200">اسم المنتج</TableHead>
-                    <TableHead className="text-slate-200">الفئة</TableHead>
-                    <TableHead className="text-slate-200">الكمية</TableHead>
-                    <TableHead className="text-slate-200">السعر</TableHead>
-                    <TableHead className="text-slate-200">القيمة الإجمالية</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reportData.productReports.map((product, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="text-slate-300">{product.name}</TableCell>
-                      <TableCell className="text-slate-300">{product.category}</TableCell>
-                      <TableCell className="text-slate-300">{product.quantity}</TableCell>
-                      <TableCell className="text-slate-300">{product.price} ر.س</TableCell>
-                      <TableCell className="text-green-400 font-bold">{product.totalValue.toLocaleString('ar-EG')} ر.س</TableCell>
+          {/* Category Breakdown */}
+          {reportData.categoryBreakdown.length > 0 && (
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white">توزيع المنتجات حسب الفئة</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-gray-600">
+                      <TableHead className="text-white">الفئة</TableHead>
+                      <TableHead className="text-white">عدد المنتجات</TableHead>
+                      <TableHead className="text-white">إجمالي الكمية</TableHead>
+                      <TableHead className="text-white">القيمة الإجمالية</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <Alert>
-                <AlertDescription>لا توجد بيانات منتجات للعرض</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  </TableHeader>
+                  <TableBody>
+                    {reportData.categoryBreakdown.map((item, index) => (
+                      <TableRow key={index} className="border-gray-600">
+                        <TableCell className="text-white">{item.category}</TableCell>
+                        <TableCell className="text-blue-400">{item.count}</TableCell>
+                        <TableCell className="text-yellow-400">{item.totalQuantity || 0}</TableCell>
+                        <TableCell className="text-green-400">{item.value.toFixed(2)} ج.م</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-      {(reportType === "شامل" || reportType === "مشتريات") && (
-        <Card className="animate-fade-in bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white">تقرير المشتريات</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {reportData.purchaseReports.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-slate-200">اسم المنتج</TableHead>
-                    <TableHead className="text-slate-200">الكمية</TableHead>
-                    <TableHead className="text-slate-200">سعر الوحدة</TableHead>
-                    <TableHead className="text-slate-200">المبلغ الإجمالي</TableHead>
-                    <TableHead className="text-slate-200">التاريخ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reportData.purchaseReports.map((purchase, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="text-slate-300">{purchase.productName}</TableCell>
-                      <TableCell className="text-slate-300">{purchase.quantity}</TableCell>
-                      <TableCell className="text-slate-300">{purchase.unitPrice} ر.س</TableCell>
-                      <TableCell className="text-green-400 font-bold">{purchase.totalAmount.toLocaleString('ar-EG')} ر.س</TableCell>
-                      <TableCell className="text-slate-400">{new Date(purchase.date).toLocaleDateString('ar-EG')}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <Alert>
-                <AlertDescription>لا توجد بيانات مشتريات للعرض</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      )}
+        {/* Inventory Report */}
+        <TabsContent value="inventory" className="space-y-6">
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between text-white">
+                تقرير المخزون
+                <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                  <Download className="h-4 w-4" />
+                  تصدير
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {reportData.lowStockProducts.length > 0 ? (
+                <div>
+                  <h3 className="text-lg font-semibold text-red-400 mb-4">منتجات منخفضة المخزون</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-gray-600">
+                        <TableHead className="text-white">اسم المنتج</TableHead>
+                        <TableHead className="text-white">الكمية المتاحة</TableHead>
+                        <TableHead className="text-white">الوحدة</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reportData.lowStockProducts.map((product, index) => (
+                        <TableRow key={index} className="border-gray-600">
+                          <TableCell className="text-white">{product.name}</TableCell>
+                          <TableCell className="text-red-400">{product.total}</TableCell>
+                          <TableCell className="text-gray-300">{product.unit}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Package className="h-16 w-16 mx-auto mb-4 text-gray-500" />
+                  <p className="text-gray-400 text-lg">
+                    {isLoading ? "جاري التحميل..." : "جميع المنتجات في مستوى مخزون جيد"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {(reportType === "شامل" || reportType === "موردين") && (
-        <Card className="animate-fade-in bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white">تقرير الموردين</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {reportData.supplierReports.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-slate-200">اسم المورد</TableHead>
-                    <TableHead className="text-slate-200">الشخص المسؤول</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reportData.supplierReports.map((supplier, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="text-slate-300">{supplier.name}</TableCell>
-                      <TableCell className="text-slate-300">{supplier.contactPerson}</TableCell>
+        {/* Financial Report */}
+        <TabsContent value="financial" className="space-y-6">
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between text-white">
+                التقرير المالي - المشتريات الأخيرة
+                <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                  <Download className="h-4 w-4" />
+                  تصدير
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {reportData.recentPurchases.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-gray-600">
+                      <TableHead className="text-white">المنتج</TableHead>
+                      <TableHead className="text-white">المورد</TableHead>
+                      <TableHead className="text-white">الكمية المشتراة</TableHead>
+                      <TableHead className="text-white">السعر</TableHead>
+                      <TableHead className="text-white">الإجمالي</TableHead>
+                      <TableHead className="text-white">التاريخ</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <Alert>
-                <AlertDescription>لا توجد بيانات موردين للعرض</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  </TableHeader>
+                  <TableBody>
+                    {reportData.recentPurchases.map((purchase, index) => (
+                      <TableRow key={index} className="border-gray-600">
+                        <TableCell className="text-white">{purchase.productName}</TableCell>
+                        <TableCell className="text-blue-400">{purchase.supplierName}</TableCell>
+                        <TableCell className="text-yellow-400">{purchase.quantity}</TableCell>
+                        <TableCell className="text-gray-300">{purchase.price.toFixed(2)} ج.م</TableCell>
+                        <TableCell className="text-green-400">{purchase.total.toFixed(2)} ج.م</TableCell>
+                        <TableCell className="text-gray-300">{purchase.date}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12">
+                  <BarChart3 className="h-16 w-16 mx-auto mb-4 text-gray-500" />
+                  <p className="text-gray-400 text-lg">
+                    {isLoading ? "جاري التحميل..." : "لا توجد مشتريات مسجلة حالياً"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

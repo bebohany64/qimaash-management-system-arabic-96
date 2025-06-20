@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Search, Edit, Trash2, Users, Save, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { executeQuery } from '@/utils/database';
 
 interface Supplier {
@@ -17,7 +18,6 @@ interface Supplier {
 }
 
 const SuppliersManager = () => {
-  const { toast } = useToast();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddingSupplier, setIsAddingSupplier] = useState(false);
@@ -29,7 +29,7 @@ const SuppliersManager = () => {
     notes: ""
   });
 
-  // تحميل الموردين فورياً بدون تأخير
+  // Load suppliers from database - محسنة
   const loadSuppliers = async () => {
     try {
       setIsLoading(true);
@@ -53,11 +53,7 @@ const SuppliersManager = () => {
       }
     } catch (error) {
       console.error('Error loading suppliers:', error);
-      toast({
-        title: "خطأ في التحميل",
-        description: 'خطأ في تحميل الموردين: ' + error.message,
-        variant: "destructive",
-      });
+      toast.error('خطأ في تحميل الموردين: ' + error.message);
       setSuppliers([]);
     } finally {
       setIsLoading(false);
@@ -65,8 +61,12 @@ const SuppliersManager = () => {
   };
 
   useEffect(() => {
-    // تحميل فوري بدون انتظار
-    loadSuppliers();
+    // انتظار قليل للتأكد من إنشاء الجداول
+    const timer = setTimeout(() => {
+      loadSuppliers();
+    }, 2000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const filteredSuppliers = suppliers.filter(supplier => {
@@ -80,11 +80,7 @@ const SuppliersManager = () => {
     e.preventDefault();
     
     if (!formData.name.trim() || !formData.contactPerson.trim()) {
-      toast({
-        title: "خطأ في البيانات",
-        description: "يرجى ملء الحقول المطلوبة",
-        variant: "destructive",
-      });
+      toast.error("يرجى ملء الحقول المطلوبة");
       return;
     }
     
@@ -99,20 +95,14 @@ const SuppliersManager = () => {
           [formData.name.trim(), formData.contactPerson.trim(), formData.notes.trim(), editingSupplier.id]
         );
         console.log('Supplier update result:', updateResult);
-        toast({
-          title: "تم التحديث",
-          description: "تم تحديث بيانات المورد بنجاح",
-        });
+        toast.success("تم تحديث بيانات المورد بنجاح");
       } else {
         const insertResult = await executeQuery(
           'INSERT INTO suppliers (name, contact_person, notes) VALUES (?, ?, ?)',
           [formData.name.trim(), formData.contactPerson.trim(), formData.notes.trim()]
         );
         console.log('Supplier insert result:', insertResult);
-        toast({
-          title: "تم الإضافة",
-          description: "تم إضافة المورد بنجاح",
-        });
+        toast.success("تم إضافة المورد بنجاح");
       }
 
       await loadSuppliers();
@@ -121,11 +111,7 @@ const SuppliersManager = () => {
       setEditingSupplier(null);
     } catch (error) {
       console.error('Error saving supplier:', error);
-      toast({
-        title: "خطأ في الحفظ",
-        description: 'خطأ في حفظ المورد: ' + error.message,
-        variant: "destructive",
-      });
+      toast.error('خطأ في حفظ المورد: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -152,17 +138,10 @@ const SuppliersManager = () => {
       console.log('Supplier delete result:', deleteResult);
       
       await loadSuppliers();
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف المورد بنجاح",
-      });
+      toast.success("تم حذف المورد بنجاح");
     } catch (error) {
       console.error('Error deleting supplier:', error);
-      toast({
-        title: "خطأ في الحذف",
-        description: 'خطأ في حذف المورد: ' + error.message,
-        variant: "destructive",
-      });
+      toast.error('خطأ في حذف المورد: ' + error.message);
     } finally {
       setIsLoading(false);
     }
