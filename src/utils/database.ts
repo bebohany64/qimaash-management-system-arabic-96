@@ -13,15 +13,28 @@ export const dbConfig: DatabaseConfig = {
   token: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NTAzODEwMDUsImlkIjoiZjdhMjJlN2MtNDYwYS00YmVhLWE5NGQtNWFlYjNlZTdkOGMzIiwicmlkIjoiODk1MmRjMzMtZTBlNi00MTdlLWE4ZDEtNDllNjM1Mzk3N2IzIn0.YwaGzTMEFuufazVP2FWGbUEYFnzr_KNv9acog4TsDBN_kDRlHflI0wILhjpJGXfTV1sbTMa1RvGe4kJplaPABQ"
 };
 
-// Helper function to extract value from database response
+// Helper function to extract value from database response - محسنة
 const extractValue = (dbValue: any): any => {
+  // إذا كان القيمة null أو undefined
+  if (dbValue === null || dbValue === undefined) {
+    return null;
+  }
+  
+  // إذا كان القيمة نص "null"
+  if (dbValue === "null") {
+    return null;
+  }
+  
+  // إذا كان القيمة كائن يحتوي على خاصية value
   if (dbValue && typeof dbValue === 'object' && 'value' in dbValue) {
     return dbValue.value;
   }
+  
+  // إرجاع القيمة كما هي
   return dbValue;
 };
 
-// دالة أساسية للاتصال بقاعدة البيانات
+// دالة أساسية للاتصال بقاعدة البيانات - محسنة
 export const executeQuery = async (sql: string, params: any[] = []) => {
   try {
     console.log('Executing query:', sql, 'with params:', params);
@@ -60,13 +73,17 @@ export const executeQuery = async (sql: string, params: any[] = []) => {
       throw new Error(`Database error: ${result.results[0].error.message}`);
     }
     
-    // Process the result to extract actual values
+    // معالجة النتيجة لاستخراج القيم الفعلية - تحسين
     if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result) {
       const queryResult = result.results[0].response.result;
       
-      if (queryResult.rows) {
+      if (queryResult.rows && Array.isArray(queryResult.rows)) {
         const processedRows = queryResult.rows.map((row: any[]) => 
-          row.map((cell: any) => extractValue(cell))
+          row.map((cell: any) => {
+            const extractedValue = extractValue(cell);
+            console.log('Processing cell:', cell, 'extracted:', extractedValue);
+            return extractedValue;
+          })
         );
         result.results[0].response.result.rows = processedRows;
         console.log('Processed rows:', processedRows);
@@ -80,17 +97,19 @@ export const executeQuery = async (sql: string, params: any[] = []) => {
   }
 };
 
-// دالة لتحديث كمية المنتج عند الشراء
+// دالة لتحديث كمية المنتج عند الشراء - محسنة
 export const updateProductQuantityOnPurchase = async (productName: string, purchasedQuantity: number) => {
   try {
     console.log('Updating product quantity for:', productName, 'with quantity:', purchasedQuantity);
     
-    // البحث عن المنتج بالاسم
+    // البحث عن المنتج بالاسم أولاً
     const productResult = await executeQuery('SELECT id, previous_balance, total FROM products WHERE name = ?', [productName]);
+    
+    console.log('Product search result:', productResult);
     
     if (productResult?.results?.[0]?.response?.result?.rows?.length > 0) {
       const productRow = productResult.results[0].response.result.rows[0];
-      const productId = parseInt(productRow[0]);
+      const productId = parseInt(productRow[0]) || 0;
       const currentPreviousBalance = parseFloat(productRow[1]) || 0;
       const currentTotal = parseFloat(productRow[2]) || 0;
       
@@ -98,14 +117,15 @@ export const updateProductQuantityOnPurchase = async (productName: string, purch
       const newPreviousBalance = currentPreviousBalance + purchasedQuantity;
       const newTotal = currentTotal + purchasedQuantity;
       
-      console.log('Updating product:', productId, 'New balance:', newPreviousBalance, 'New total:', newTotal);
+      console.log('Updating product:', productId, 'Current:', {currentPreviousBalance, currentTotal}, 'New:', {newPreviousBalance, newTotal});
       
       // تحديث المنتج في قاعدة البيانات
-      await executeQuery(
+      const updateResult = await executeQuery(
         'UPDATE products SET previous_balance = ?, total = ? WHERE id = ?',
         [newPreviousBalance, newTotal, productId]
       );
       
+      console.log('Product update result:', updateResult);
       console.log('Product quantity updated successfully');
       return true;
     } else {
@@ -118,25 +138,53 @@ export const updateProductQuantityOnPurchase = async (productName: string, purch
   }
 };
 
-// دوال إنشاء الجداول بطريقة متسلسلة
+// دوال إنشاء الجداول - محسنة مع معالجة أفضل للأخطاء
 export const createTables = async () => {
   try {
     console.log('Starting table creation process...');
     
-    // أولاً، احذف الجداول القديمة إذا كانت موجودة
+    // التحقق من وجود الجداول أولاً
+    try {
+      const tablesCheck = await executeQuery(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name IN ('products', 'suppliers', 'purchases')
+      `);
+      console.log('Existing tables check:', tablesCheck);
+    } catch (error) {
+      console.log('Error checking existing tables (this is normal for first run):', error);
+    }
+
+    // حذف الجداول القديمة إذا كانت موجودة (بترتيب عكسي للمراجع)
     console.log('Dropping old tables if they exist...');
-    await executeQuery(`DROP TABLE IF EXISTS purchases`);
-    await executeQuery(`DROP TABLE IF EXISTS products`);
-    await executeQuery(`DROP TABLE IF EXISTS suppliers`);
+    try {
+      await executeQuery(`DROP TABLE IF EXISTS purchases`);
+      await executeQuery(`DROP TABLE IF EXISTS products`);
+      await executeQuery(`DROP TABLE IF EXISTS suppliers`);
+    } catch (error) {
+      console.log('Error dropping tables (this is normal):', error);
+    }
+
+    // إنشاء جدول الموردين أولاً
+    console.log('Creating suppliers table...');
+    const createSuppliersTable = `
+      CREATE TABLE suppliers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        contact_person TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    await executeQuery(createSuppliersTable);
+    console.log('Suppliers table created successfully');
 
     // إنشاء جدول المنتجات
     console.log('Creating products table...');
     const createProductsTable = `
       CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL UNIQUE,
         category TEXT NOT NULL,
-        custom_category TEXT,
+        custom_category TEXT DEFAULT '',
         unit TEXT NOT NULL,
         price REAL NOT NULL DEFAULT 0,
         previous_balance REAL NOT NULL DEFAULT 0,
@@ -146,28 +194,16 @@ export const createTables = async () => {
       )
     `;
     await executeQuery(createProductsTable);
-
-    // إنشاء جدول الموردين
-    console.log('Creating suppliers table...');
-    const createSuppliersTable = `
-      CREATE TABLE suppliers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        contact_person TEXT NOT NULL,
-        notes TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-    await executeQuery(createSuppliersTable);
+    console.log('Products table created successfully');
 
     // إنشاء جدول المشتريات
     console.log('Creating purchases table...');
     const createPurchasesTable = `
       CREATE TABLE purchases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        supplier_id INTEGER,
+        supplier_id INTEGER NOT NULL,
         date TEXT NOT NULL,
-        notes TEXT,
+        notes TEXT DEFAULT '',
         product_name TEXT NOT NULL,
         quantity REAL NOT NULL,
         price REAL NOT NULL,
@@ -177,6 +213,7 @@ export const createTables = async () => {
       )
     `;
     await executeQuery(createPurchasesTable);
+    console.log('Purchases table created successfully');
 
     console.log('All tables created successfully');
     
@@ -184,16 +221,18 @@ export const createTables = async () => {
     console.log('Adding sample data...');
     
     // إضافة مورد تجريبي
-    await executeQuery(
+    const supplierResult = await executeQuery(
       'INSERT INTO suppliers (name, contact_person, notes) VALUES (?, ?, ?)',
       ['مورد تجريبي', 'أحمد محمد', 'مورد للاختبار']
     );
+    console.log('Sample supplier added:', supplierResult);
     
     // إضافة منتج تجريبي
-    await executeQuery(
+    const productResult = await executeQuery(
       'INSERT INTO products (name, category, unit, price, previous_balance, outgoing, total) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ['قماش قطني', 'أقمشة', 'متر', 25.50, 100, 0, 100]
     );
+    console.log('Sample product added:', productResult);
     
     console.log('Sample data added successfully');
     

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,16 +29,18 @@ const SuppliersManager = () => {
     notes: ""
   });
 
-  // Load suppliers from database
+  // Load suppliers from database - محسنة
   const loadSuppliers = async () => {
     try {
       setIsLoading(true);
-      const result = await executeQuery('SELECT * FROM suppliers ORDER BY created_at DESC');
+      console.log('Loading suppliers...');
+      
+      const result = await executeQuery('SELECT id, name, contact_person, notes FROM suppliers ORDER BY created_at DESC');
       console.log('Raw suppliers result:', result);
       
       if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
         const suppliersData = result.results[0].response.result.rows.map((row: any) => ({
-          id: parseInt(row[0]),
+          id: parseInt(row[0]) || 0,
           name: String(row[1] || ""),
           contactPerson: String(row[2] || ""),
           notes: String(row[3] || "")
@@ -50,14 +53,20 @@ const SuppliersManager = () => {
       }
     } catch (error) {
       console.error('Error loading suppliers:', error);
-      toast.error('خطأ في تحميل الموردين');
+      toast.error('خطأ في تحميل الموردين: ' + error.message);
+      setSuppliers([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadSuppliers();
+    // انتظار قليل للتأكد من إنشاء الجداول
+    const timer = setTimeout(() => {
+      loadSuppliers();
+    }, 2000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const filteredSuppliers = suppliers.filter(supplier => {
@@ -69,20 +78,30 @@ const SuppliersManager = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name.trim() || !formData.contactPerson.trim()) {
+      toast.error("يرجى ملء الحقول المطلوبة");
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
+      console.log('Submitting supplier:', formData);
+      
       if (editingSupplier) {
-        await executeQuery(
+        const updateResult = await executeQuery(
           'UPDATE suppliers SET name = ?, contact_person = ?, notes = ? WHERE id = ?',
-          [formData.name, formData.contactPerson, formData.notes, editingSupplier.id]
+          [formData.name.trim(), formData.contactPerson.trim(), formData.notes.trim(), editingSupplier.id]
         );
+        console.log('Supplier update result:', updateResult);
         toast.success("تم تحديث بيانات المورد بنجاح");
       } else {
-        await executeQuery(
+        const insertResult = await executeQuery(
           'INSERT INTO suppliers (name, contact_person, notes) VALUES (?, ?, ?)',
-          [formData.name, formData.contactPerson, formData.notes]
+          [formData.name.trim(), formData.contactPerson.trim(), formData.notes.trim()]
         );
+        console.log('Supplier insert result:', insertResult);
         toast.success("تم إضافة المورد بنجاح");
       }
 
@@ -92,7 +111,7 @@ const SuppliersManager = () => {
       setEditingSupplier(null);
     } catch (error) {
       console.error('Error saving supplier:', error);
-      toast.error('خطأ في حفظ المورد');
+      toast.error('خطأ في حفظ المورد: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -113,12 +132,16 @@ const SuppliersManager = () => {
     
     try {
       setIsLoading(true);
-      await executeQuery('DELETE FROM suppliers WHERE id = ?', [id]);
+      console.log('Deleting supplier:', id);
+      
+      const deleteResult = await executeQuery('DELETE FROM suppliers WHERE id = ?', [id]);
+      console.log('Supplier delete result:', deleteResult);
+      
       await loadSuppliers();
       toast.success("تم حذف المورد بنجاح");
     } catch (error) {
       console.error('Error deleting supplier:', error);
-      toast.error('خطأ في حذف المورد');
+      toast.error('خطأ في حذف المورد: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -148,24 +171,26 @@ const SuppliersManager = () => {
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <Label htmlFor="name" className="text-slate-200">اسم المورد</Label>
+                    <Label htmlFor="name" className="text-slate-200">اسم المورد *</Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
                       required
                       className="bg-slate-700 border-slate-600 text-white"
+                      placeholder="أدخل اسم المورد"
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="contactPerson" className="text-slate-200">الشخص المسؤول</Label>
+                    <Label htmlFor="contactPerson" className="text-slate-200">الشخص المسؤول *</Label>
                     <Input
                       id="contactPerson"
                       value={formData.contactPerson}
                       onChange={(e) => setFormData({...formData, contactPerson: e.target.value})}
                       required
                       className="bg-slate-700 border-slate-600 text-white"
+                      placeholder="أدخل اسم الشخص المسؤول"
                     />
                   </div>
 
@@ -177,6 +202,7 @@ const SuppliersManager = () => {
                       onChange={(e) => setFormData({...formData, notes: e.target.value})}
                       rows={3}
                       className="bg-slate-700 border-slate-600 text-white"
+                      placeholder="أضف ملاحظات إضافية..."
                     />
                   </div>
 

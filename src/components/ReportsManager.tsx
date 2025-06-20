@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, BarChart3, Download, Package, Users, ShoppingCart } from "lucide-react";
 import { executeQuery } from '@/utils/database';
+import { toast } from 'react-toastify';
 
 interface ReportData {
   totalProducts: number;
@@ -38,26 +38,32 @@ const ReportsManager = () => {
   const loadReportData = async () => {
     try {
       setIsLoading(true);
+      console.log('Loading report data...');
       
       // Get total products with updated inventory value calculation
       const productsResult = await executeQuery('SELECT COUNT(*) as count, SUM(total * price) as total_value FROM products');
+      console.log('Products result for reports:', productsResult);
+      
       const totalProducts = productsResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
       const totalInventoryValue = productsResult?.results?.[0]?.response?.result?.rows?.[0]?.[1] || 0;
       
       // Get total suppliers
       const suppliersResult = await executeQuery('SELECT COUNT(*) as count FROM suppliers');
+      console.log('Suppliers result for reports:', suppliersResult);
       const totalSuppliers = suppliersResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
       
       // Get total purchases with sum of purchase amounts
       const purchasesResult = await executeQuery('SELECT COUNT(*) as count, SUM(total) as total_amount FROM purchases');
+      console.log('Purchases result for reports:', purchasesResult);
       const totalPurchases = purchasesResult?.results?.[0]?.response?.result?.rows?.[0]?.[0] || 0;
       const totalPurchaseAmount = purchasesResult?.results?.[0]?.response?.result?.rows?.[0]?.[1] || 0;
       
       // Get low stock products (total < 10)
       const lowStockResult = await executeQuery('SELECT name, total, unit FROM products WHERE total < 10 ORDER BY total ASC');
+      console.log('Low stock result for reports:', lowStockResult);
       const lowStockProducts = lowStockResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
         name: String(row[0] || ""),
-        total: parseInt(row[1] || 0),
+        total: parseFloat(row[1]) || 0,
         unit: String(row[2] || "")
       })) || [];
       
@@ -69,13 +75,14 @@ const ReportsManager = () => {
         ORDER BY p.created_at DESC
         LIMIT 10
       `);
+      console.log('Recent purchases result for reports:', recentPurchasesResult);
       const recentPurchases = recentPurchasesResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
         productName: String(row[0] || ""),
-        quantity: parseFloat(row[1] || 0),
-        price: parseFloat(row[2] || 0),
-        total: parseFloat(row[3] || 0),
+        quantity: parseFloat(row[1]) || 0,
+        price: parseFloat(row[2]) || 0,
+        total: parseFloat(row[3]) || 0,
         date: String(row[4] || ""),
-        supplierName: String(row[5] || "")
+        supplierName: String(row[5] || "غير محدد")
       })) || [];
       
       // Get category breakdown with updated calculations
@@ -85,14 +92,15 @@ const ReportsManager = () => {
         GROUP BY category
         ORDER BY count DESC
       `);
+      console.log('Category result for reports:', categoryResult);
       const categoryBreakdown = categoryResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
         category: String(row[0] || ""),
-        count: parseInt(row[1] || 0),
-        value: parseFloat(row[2] || 0),
-        totalQuantity: parseFloat(row[3] || 0)
+        count: parseInt(row[1]) || 0,
+        value: parseFloat(row[2]) || 0,
+        totalQuantity: parseFloat(row[3]) || 0
       })) || [];
       
-      setReportData({
+      const newReportData = {
         totalProducts: parseInt(totalProducts) || 0,
         totalSuppliers: parseInt(totalSuppliers) || 0,
         totalPurchases: parseInt(totalPurchases) || 0,
@@ -100,17 +108,26 @@ const ReportsManager = () => {
         lowStockProducts,
         recentPurchases,
         categoryBreakdown
-      });
+      };
+      
+      console.log('Final report data:', newReportData);
+      setReportData(newReportData);
       
     } catch (error) {
       console.error('Error loading report data:', error);
+      toast.error('خطأ في تحميل بيانات التقارير: ' + error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadReportData();
+    // انتظار أطول للتأكد من إنشاء الجداول وإدخال البيانات
+    const timer = setTimeout(() => {
+      loadReportData();
+    }, 4000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const handleUpdateReport = () => {
@@ -231,7 +248,7 @@ const ReportsManager = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-white">
                   <BarChart3 className="h-5 w-5 text-orange-400" />
-                  قيمة المخزون المحدثة
+                  قيمة المخزون
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -241,11 +258,11 @@ const ReportsManager = () => {
             </Card>
           </div>
 
-          {/* Category Breakdown with enhanced data */}
+          {/* Category Breakdown */}
           {reportData.categoryBreakdown.length > 0 && (
             <Card className="bg-gray-800 border-gray-700">
               <CardHeader>
-                <CardTitle className="text-white">توزيع المنتجات حسب الفئة (محدث)</CardTitle>
+                <CardTitle className="text-white">توزيع المنتجات حسب الفئة</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -278,7 +295,7 @@ const ReportsManager = () => {
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-white">
-                تقرير المخزون المحدث
+                تقرير المخزون
                 <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                   <Download className="h-4 w-4" />
                   تصدير
@@ -312,7 +329,7 @@ const ReportsManager = () => {
                 <div className="text-center py-12">
                   <Package className="h-16 w-16 mx-auto mb-4 text-gray-500" />
                   <p className="text-gray-400 text-lg">
-                    جميع المنتجات في مستوى مخزون جيد
+                    {isLoading ? "جاري التحميل..." : "جميع المنتجات في مستوى مخزون جيد"}
                   </p>
                 </div>
               )}
@@ -325,7 +342,7 @@ const ReportsManager = () => {
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-white">
-                التقرير المالي - المشتريات الأخيرة (مع تحديث المخزون)
+                التقرير المالي - المشتريات الأخيرة
                 <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                   <Download className="h-4 w-4" />
                   تصدير
@@ -362,7 +379,7 @@ const ReportsManager = () => {
                 <div className="text-center py-12">
                   <BarChart3 className="h-16 w-16 mx-auto mb-4 text-gray-500" />
                   <p className="text-gray-400 text-lg">
-                    لا توجد مشتريات مسجلة حالياً
+                    {isLoading ? "جاري التحميل..." : "لا توجد مشتريات مسجلة حالياً"}
                   </p>
                 </div>
               )}
