@@ -61,19 +61,25 @@ const ProductsManager = () => {
     try {
       setIsLoading(true);
       const result = await executeQuery('SELECT * FROM products ORDER BY created_at DESC');
-      if (result && result.results && result.results[0] && result.results[0].rows) {
-        const productsData = result.results[0].rows.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          category: row.custom_category || row.category,
-          customCategory: row.custom_category,
-          unit: row.unit,
-          price: row.price,
-          previousBalance: row.previous_balance,
-          outgoing: row.outgoing,
-          total: row.total
+      console.log('Raw database result:', result);
+      
+      if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
+        const productsData = result.results[0].response.result.rows.map((row: any) => ({
+          id: row[0],
+          name: row[1],
+          category: row[3] || row[2],
+          customCategory: row[3],
+          unit: row[4],
+          price: row[5],
+          previousBalance: row[6],
+          outgoing: row[7],
+          total: row[8]
         }));
         setProducts(productsData);
+        console.log('Processed products:', productsData);
+      } else {
+        console.log('No products found or unexpected result structure');
+        setProducts([]);
       }
     } catch (error) {
       console.error('Error loading products:', error);

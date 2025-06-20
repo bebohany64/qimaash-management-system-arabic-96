@@ -34,14 +34,20 @@ const SuppliersManager = () => {
     try {
       setIsLoading(true);
       const result = await executeQuery('SELECT * FROM suppliers ORDER BY created_at DESC');
-      if (result && result.results && result.results[0] && result.results[0].rows) {
-        const suppliersData = result.results[0].rows.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          contactPerson: row.contact_person,
-          notes: row.notes
+      console.log('Raw suppliers result:', result);
+      
+      if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
+        const suppliersData = result.results[0].response.result.rows.map((row: any) => ({
+          id: row[0],
+          name: row[1],
+          contactPerson: row[2],
+          notes: row[3]
         }));
         setSuppliers(suppliersData);
+        console.log('Processed suppliers:', suppliersData);
+      } else {
+        console.log('No suppliers found or unexpected result structure');
+        setSuppliers([]);
       }
     } catch (error) {
       console.error('Error loading suppliers:', error);

@@ -1,3 +1,4 @@
+
 // تحذير: تخزين معلومات قاعدة البيانات في الكود غير آمن
 // يُنصح بشدة باستخدام تكامل Supabase المدمج في Lovable
 
@@ -8,29 +9,38 @@ export interface DatabaseConfig {
 
 // معلومات الاتصال - يجب نقلها إلى متغيرات البيئة في الإنتاج
 export const dbConfig: DatabaseConfig = {
-  url: "libsql://alkoa-alaaamla-bebo.aws-eu-west-1.turso.io",
+  url: "https://alkoa-alaaamla-bebo.aws-eu-west-1.turso.io",
   token: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NTAzODEwMDUsImlkIjoiZjdhMjJlN2MtNDYwYS00YmVhLWE5NGQtNWFlYjNlZTdkOGMzIiwicmlkIjoiODk1MmRjMzMtZTBlNi00MTdlLWE4ZDEtNDllNjM1Mzk3N2IzIn0.YwaGzTMEFuufazVP2FWGbUEYFnzr_KNv9acog4TsDBN_kDRlHflI0wILhjpJGXfTV1sbTMa1RvGe4kJplaPABQ"
 };
 
 // دالة أساسية للاتصال بقاعدة البيانات
 export const executeQuery = async (sql: string, params: any[] = []) => {
   try {
-    const response = await fetch(dbConfig.url, {
+    console.log('Executing query:', sql, 'with params:', params);
+    
+    const response = await fetch(`${dbConfig.url}/v2/pipeline`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${dbConfig.token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        statements: [{
-          q: sql,
-          params: params
-        }]
+        requests: [
+          {
+            type: "execute",
+            stmt: {
+              sql: sql,
+              args: params.map(param => ({ type: "text", value: String(param) }))
+            }
+          }
+        ]
       })
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('HTTP error response:', response.status, errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     const result = await response.json();
