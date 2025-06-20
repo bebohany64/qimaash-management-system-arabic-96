@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Users, ShoppingCart, FileText, Printer, Zap } from "lucide-react";
+import { Package, Users, ShoppingCart, FileText, Printer } from "lucide-react";
 import ProductsManager from "@/components/ProductsManager";
 import SuppliersManager from "@/components/SuppliersManager";
 import PurchasesManager from "@/components/PurchasesManager";
@@ -22,9 +22,28 @@ const Index = () => {
               <h1 className="text-2xl font-bold text-white">نظام إدارة مخازن الأقمشة</h1>
             </div>
             <div className="text-right flex items-center gap-3">
-              {/* أيقونة ماكينة الخياطة المتحركة */}
+              {/* ماكينة الخياطة المتحركة */}
               <div className="relative">
-                <Zap className="h-6 w-6 text-blue-400 animate-bounce" />
+                {/* ماكينة الخياطة مصنوعة من SVG مخصص */}
+                <div className="w-8 h-8 text-blue-400 animate-bounce">
+                  <svg 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    className="w-full h-full"
+                  >
+                    <rect x="3" y="12" width="18" height="4" rx="1"/>
+                    <path d="M7 12V8a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v4"/>
+                    <path d="M12 8V4"/>
+                    <circle cx="8" cy="16" r="1"/>
+                    <circle cx="16" cy="16" r="1"/>
+                    <path d="M12 12l2-2"/>
+                    <path d="M10 10l2 2"/>
+                  </svg>
+                </div>
                 <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-ping"></div>
               </div>
               <h2 className="text-lg font-semibold text-yellow-400" style={{ fontFamily: 'Cairo, sans-serif' }}>
