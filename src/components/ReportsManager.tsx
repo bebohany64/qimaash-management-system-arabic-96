@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, BarChart3, Package, Users, ShoppingCart } from "lucide-react";
+import { FileText, BarChart3, Download, Package, Users, ShoppingCart } from "lucide-react";
 import { executeQuery } from '@/utils/database';
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,94 +37,72 @@ const ReportsManager = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  // تحميل التقارير مع معالجة محسنة للأخطاء
+  // تحميل التقارير فورياً عند تحميل المكون
   const loadReportData = async () => {
     try {
       setIsLoading(true);
-      console.log('🔄 Starting report data loading...');
+      console.log('Loading report data...');
 
-      // تحميل إحصائيات أساسية بطريقة آمنة
-      const [productsCount, suppliersCount, purchasesData] = await Promise.allSettled([
+      // استعلامات متوازية لتسريع التحميل
+      const [productsResult, suppliersResult, purchasesResult] = await Promise.all([
         executeQuery('SELECT COUNT(*) as count FROM products'),
         executeQuery('SELECT COUNT(*) as count FROM suppliers'),
-        executeQuery('SELECT COUNT(*), COALESCE(SUM(total), 0) FROM purchases')
+        executeQuery('SELECT COUNT(*) as count, SUM(total_amount) as total FROM purchases')
       ]);
+
+      console.log('Products result:', productsResult);
+      console.log('Suppliers result:', suppliersResult);
+      console.log('Purchases result:', purchasesResult);
 
       let totalProducts = 0;
       let totalSuppliers = 0;
       let totalPurchases = 0;
       let totalValue = 0;
 
-      // معالجة نتائج العد مع console.log مفصل
-      if (productsCount.status === 'fulfilled' && productsCount.value?.results?.[0]?.response?.result?.rows?.[0]) {
-        const productRow = productsCount.value.results[0].response.result.rows[0];
-        totalProducts = parseInt(String(productRow[0])) || 0;
-        console.log('✅ Products count loaded:', totalProducts);
-      } else {
-        console.log('⚠️ Failed to load products count:', productsCount);
+      // معالجة نتائج المنتجات
+      if (productsResult?.results?.[0]?.response?.result?.rows?.[0]) {
+        totalProducts = parseInt(productsResult.results[0].response.result.rows[0][0]) || 0;
       }
 
-      if (suppliersCount.status === 'fulfilled' && suppliersCount.value?.results?.[0]?.response?.result?.rows?.[0]) {
-        const supplierRow = suppliersCount.value.results[0].response.result.rows[0];
-        totalSuppliers = parseInt(String(supplierRow[0])) || 0;
-        console.log('✅ Suppliers count loaded:', totalSuppliers);
-      } else {
-        console.log('⚠️ Failed to load suppliers count:', suppliersCount);
+      // معالجة نتائج الموردين
+      if (suppliersResult?.results?.[0]?.response?.result?.rows?.[0]) {
+        totalSuppliers = parseInt(suppliersResult.results[0].response.result.rows[0][0]) || 0;
       }
 
-      if (purchasesData.status === 'fulfilled' && purchasesData.value?.results?.[0]?.response?.result?.rows?.[0]) {
-        const purchaseRow = purchasesData.value.results[0].response.result.rows[0];
-        totalPurchases = parseInt(String(purchaseRow[0])) || 0;
-        totalValue = parseFloat(String(purchaseRow[1])) || 0;
-        console.log('✅ Purchases data loaded:', { totalPurchases, totalValue });
-      } else {
-        console.log('⚠️ Failed to load purchases data:', purchasesData);
+      // معالجة نتائج المشتريات
+      if (purchasesResult?.results?.[0]?.response?.result?.rows?.[0]) {
+        totalPurchases = parseInt(purchasesResult.results[0].response.result.rows[0][0]) || 0;
+        totalValue = parseFloat(purchasesResult.results[0].response.result.rows[0][1]) || 0;
       }
 
-      // تحميل البيانات التفصيلية
-      const [productDetails, purchaseDetails, supplierDetails] = await Promise.allSettled([
-        executeQuery('SELECT name, category, COALESCE(total, 0), COALESCE(price, 0) FROM products ORDER BY total DESC LIMIT 10'),
-        executeQuery('SELECT product_name, quantity, price, total, date FROM purchases ORDER BY date DESC LIMIT 10'),
-        executeQuery('SELECT name, contact_person FROM suppliers ORDER BY name LIMIT 10')
+      // تحميل التقارير التفصيلية
+      const [productDetailsResult, purchaseDetailsResult, supplierDetailsResult] = await Promise.all([
+        executeQuery('SELECT name, category, total_quantity, price FROM products ORDER BY total_quantity DESC LIMIT 10'),
+        executeQuery('SELECT p.product_name, p.quantity, p.unit_price, p.total_amount, p.created_at FROM purchases p ORDER BY p.created_at DESC LIMIT 10'),
+        executeQuery('SELECT name, contact_person FROM suppliers ORDER BY created_at DESC LIMIT 10')
       ]);
 
-      // معالجة تقارير المنتجات
-      let productReports: any[] = [];
-      if (productDetails.status === 'fulfilled' && productDetails.value?.results?.[0]?.response?.result?.rows) {
-        productReports = productDetails.value.results[0].response.result.rows.map((row: any[]) => ({
-          name: String(row[0] || "غير محدد"),
-          category: String(row[1] || "غير محدد"),
-          quantity: parseFloat(String(row[2])) || 0,
-          price: parseFloat(String(row[3])) || 0,
-          totalValue: (parseFloat(String(row[2])) || 0) * (parseFloat(String(row[3])) || 0)
-        }));
-        console.log('✅ Product reports loaded:', productReports.length);
-      }
+      const productReports = productDetailsResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
+        name: String(row[0] || ""),
+        category: String(row[1] || ""),
+        quantity: parseFloat(row[2]) || 0,
+        price: parseFloat(row[3]) || 0,
+        totalValue: (parseFloat(row[2]) || 0) * (parseFloat(row[3]) || 0)
+      })) || [];
 
-      // معالجة تقارير المشتريات
-      let purchaseReports: any[] = [];
-      if (purchaseDetails.status === 'fulfilled' && purchaseDetails.value?.results?.[0]?.response?.result?.rows) {
-        purchaseReports = purchaseDetails.value.results[0].response.result.rows.map((row: any[]) => ({
-          productName: String(row[0] || "غير محدد"),
-          quantity: parseFloat(String(row[1])) || 0,
-          unitPrice: parseFloat(String(row[2])) || 0,
-          totalAmount: parseFloat(String(row[3])) || 0,
-          date: String(row[4] || "")
-        }));
-        console.log('✅ Purchase reports loaded:', purchaseReports.length);
-      }
+      const purchaseReports = purchaseDetailsResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
+        productName: String(row[0] || ""),
+        quantity: parseFloat(row[1]) || 0,
+        unitPrice: parseFloat(row[2]) || 0,
+        totalAmount: parseFloat(row[3]) || 0,
+        date: String(row[4] || "")
+      })) || [];
 
-      // معالجة تقارير الموردين
-      let supplierReports: any[] = [];
-      if (supplierDetails.status === 'fulfilled' && supplierDetails.value?.results?.[0]?.response?.result?.rows) {
-        supplierReports = supplierDetails.value.results[0].response.result.rows.map((row: any[]) => ({
-          name: String(row[0] || "غير محدد"),
-          contactPerson: String(row[1] || "غير محدد")
-        }));
-        console.log('✅ Supplier reports loaded:', supplierReports.length);
-      }
+      const supplierReports = supplierDetailsResult?.results?.[0]?.response?.result?.rows?.map((row: any) => ({
+        name: String(row[0] || ""),
+        contactPerson: String(row[1] || "")
+      })) || [];
 
-      // تحديث الحالة
       setReportData({
         totalProducts,
         totalSuppliers,
@@ -135,29 +113,18 @@ const ReportsManager = () => {
         supplierReports
       });
 
-      console.log('🎉 Report data loaded successfully:', {
+      console.log('Report data loaded successfully:', {
         totalProducts,
         totalSuppliers,
         totalPurchases,
-        totalValue,
-        reportCounts: {
-          products: productReports.length,
-          purchases: purchaseReports.length,
-          suppliers: supplierReports.length
-        }
-      });
-
-      toast({
-        title: "تم تحديث التقارير",
-        description: "تم تحميل البيانات بنجاح",
-        variant: "default",
+        totalValue
       });
       
     } catch (error) {
-      console.error('❌ Error loading report data:', error);
+      console.error('Error loading report data:', error);
       toast({
         title: "خطأ في تحميل البيانات",
-        description: `فشل في تحميل بيانات التقارير: ${error.message}`,
+        description: 'خطأ في تحميل بيانات التقارير: ' + error.message,
         variant: "destructive",
       });
     } finally {
@@ -167,9 +134,15 @@ const ReportsManager = () => {
 
   // تحميل فوري عند تحميل المكون
   useEffect(() => {
-    console.log('🚀 ReportsManager mounted, loading data...');
     loadReportData();
   }, []);
+
+  // تحديث فوري عند تغيير المرشحات
+  useEffect(() => {
+    if (dateFrom || dateTo || selectedCategory !== "الكل" || reportType !== "شامل") {
+      loadReportData();
+    }
+  }, [dateFrom, dateTo, selectedCategory, reportType]);
 
   return (
     <div className="space-y-6">
@@ -322,7 +295,7 @@ const ReportsManager = () => {
                       <TableCell className="text-slate-300">{product.name}</TableCell>
                       <TableCell className="text-slate-300">{product.category}</TableCell>
                       <TableCell className="text-slate-300">{product.quantity}</TableCell>
-                      <TableCell className="text-slate-300">{product.price.toLocaleString('ar-EG')} ر.س</TableCell>
+                      <TableCell className="text-slate-300">{product.price} ر.س</TableCell>
                       <TableCell className="text-green-400 font-bold">{product.totalValue.toLocaleString('ar-EG')} ر.س</TableCell>
                     </TableRow>
                   ))}
@@ -359,7 +332,7 @@ const ReportsManager = () => {
                     <TableRow key={index}>
                       <TableCell className="text-slate-300">{purchase.productName}</TableCell>
                       <TableCell className="text-slate-300">{purchase.quantity}</TableCell>
-                      <TableCell className="text-slate-300">{purchase.unitPrice.toLocaleString('ar-EG')} ر.س</TableCell>
+                      <TableCell className="text-slate-300">{purchase.unitPrice} ر.س</TableCell>
                       <TableCell className="text-green-400 font-bold">{purchase.totalAmount.toLocaleString('ar-EG')} ر.س</TableCell>
                       <TableCell className="text-slate-400">{new Date(purchase.date).toLocaleDateString('ar-EG')}</TableCell>
                     </TableRow>

@@ -1,3 +1,4 @@
+
 // تحذير: تخزين معلومات قاعدة البيانات في الكود غير آمن
 // يُنصح بشدة باستخدام تكامل Supabase المدمج في Lovable
 
@@ -12,36 +13,28 @@ export const dbConfig: DatabaseConfig = {
   token: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NTAzODEwMDUsImlkIjoiZjdhMjJlN2MtNDYwYS00YmVhLWE5NGQtNWFlYjNlZTdkOGMzIiwicmlkIjoiODk1MmRjMzMtZTBlNi00MTdlLWE4ZDEtNDllNjM1Mzk3N2IzIn0.YwaGzTMEFuufazVP2FWGbUEYFnzr_KNv9acog4TsDBN_kDRlHflI0wILhjpJGXfTV1sbTMa1RvGe4kJplaPABQ"
 };
 
-// Helper function to extract value from database response - محسنة ومصححة
+// Helper function to extract value from database response - محسنة
 const extractValue = (dbValue: any): any => {
-  console.log('Extracting value from:', dbValue, 'Type:', typeof dbValue);
-  
   // إذا كان القيمة null أو undefined
   if (dbValue === null || dbValue === undefined) {
     return null;
   }
   
   // إذا كان القيمة نص "null"
-  if (dbValue === "null" || dbValue === "NULL") {
+  if (dbValue === "null") {
     return null;
   }
   
   // إذا كان القيمة كائن يحتوي على خاصية value
-  if (dbValue && typeof dbValue === 'object') {
-    if ('value' in dbValue) {
-      return dbValue.value;
-    }
-    // إذا كان كائن معقد، حاول استخراج القيمة الأولى
-    if (dbValue._type === "MaxDepthReached") {
-      return dbValue.value || null;
-    }
+  if (dbValue && typeof dbValue === 'object' && 'value' in dbValue) {
+    return dbValue.value;
   }
   
   // إرجاع القيمة كما هي
   return dbValue;
 };
 
-// دالة أساسية للاتصال بقاعدة البيانات - محسنة ومصححة
+// دالة أساسية للاتصال بقاعدة البيانات - محسنة
 export const executeQuery = async (sql: string, params: any[] = []) => {
   try {
     console.log('Executing query:', sql, 'with params:', params);
@@ -80,22 +73,20 @@ export const executeQuery = async (sql: string, params: any[] = []) => {
       throw new Error(`Database error: ${result.results[0].error.message}`);
     }
     
-    // معالجة النتيجة لاستخراج القيم الفعلية - تحسين مع إضافة console.log
+    // معالجة النتيجة لاستخراج القيم الفعلية - تحسين
     if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result) {
       const queryResult = result.results[0].response.result;
       
       if (queryResult.rows && Array.isArray(queryResult.rows)) {
-        console.log('Processing rows:', queryResult.rows.length);
-        const processedRows = queryResult.rows.map((row: any[], rowIndex: number) => {
-          console.log(`Processing row ${rowIndex}:`, row);
-          return row.map((cell: any, cellIndex: number) => {
+        const processedRows = queryResult.rows.map((row: any[]) => 
+          row.map((cell: any) => {
             const extractedValue = extractValue(cell);
-            console.log(`Cell [${rowIndex}][${cellIndex}]:`, cell, '-> extracted:', extractedValue);
+            console.log('Processing cell:', cell, 'extracted:', extractedValue);
             return extractedValue;
-          });
-        });
+          })
+        );
         result.results[0].response.result.rows = processedRows;
-        console.log('Final processed rows:', processedRows);
+        console.log('Processed rows:', processedRows);
       }
     }
     
