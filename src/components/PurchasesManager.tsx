@@ -5,116 +5,70 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, Eye, Trash2, ShoppingCart, Calendar } from "lucide-react";
+import { Plus, Search, Eye, Trash2, ShoppingCart, Calendar as CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 const PurchasesManager = () => {
-  const [purchases, setPurchases] = useState([
-    {
-      id: 1,
-      invoiceNumber: "INV-2024-001",
-      supplier: "شركة النسيج الحديث",
-      date: "2024-01-15",
-      totalAmount: 15750.00,
-      status: "مكتملة",
-      items: [
-        { product: "قماش قطني أبيض", quantity: 50, price: 25.50, total: 1275.00 },
-        { product: "قماش قطني أزرق", quantity: 75, price: 27.00, total: 2025.00 }
-      ]
-    },
-    {
-      id: 2,
-      invoiceNumber: "INV-2024-002",
-      supplier: "مؤسسة الحرير الذهبي",
-      date: "2024-01-18",
-      totalAmount: 8900.00,
-      status: "قيد المراجعة",
-      items: [
-        { product: "حرير طبيعي أحمر", quantity: 20, price: 85.00, total: 1700.00 },
-        { product: "حرير صناعي أسود", quantity: 40, price: 65.00, total: 2600.00 }
-      ]
-    }
-  ]);
-
+  const [purchases, setPurchases] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddingPurchase, setIsAddingPurchase] = useState(false);
-  const [viewingPurchase, setViewingPurchase] = useState(null);
   const [formData, setFormData] = useState({
-    invoiceNumber: "",
     supplier: "",
-    date: "",
-    items: [{ product: "", quantity: "", price: "", total: 0 }]
+    date: null,
+    notes: "",
+    product: "",
+    quantity: "",
+    price: ""
   });
 
-  const suppliers = ["شركة النسيج الحديث", "مؤسسة الحرير الذهبي", "شركة الكتان العربي"];
-  const products = ["قماش قطني أبيض", "قماش قطني أزرق", "حرير طبيعي أحمر", "حرير صناعي أسود"];
+  // Sample data - you would get these from your actual data
+  const suppliers = [];
+  const products = [];
 
   const filteredPurchases = purchases.filter(purchase =>
-    purchase.invoiceNumber.includes(searchTerm) ||
-    purchase.supplier.includes(searchTerm)
+    purchase.supplier?.includes(searchTerm)
   );
 
-  const addItem = () => {
-    setFormData({
-      ...formData,
-      items: [...formData.items, { product: "", quantity: "", price: "", total: 0 }]
-    });
-  };
-
-  const removeItem = (index) => {
-    setFormData({
-      ...formData,
-      items: formData.items.filter((_, i) => i !== index)
-    });
-  };
-
-  const updateItem = (index, field, value) => {
-    const newItems = [...formData.items];
-    newItems[index][field] = value;
-    
-    // Calculate total for this item
-    if (field === 'quantity' || field === 'price') {
-      const quantity = parseFloat(newItems[index].quantity) || 0;
-      const price = parseFloat(newItems[index].price) || 0;
-      newItems[index].total = quantity * price;
-    }
-    
-    setFormData({ ...formData, items: newItems });
-  };
-
-  const calculateTotalAmount = () => {
-    return formData.items.reduce((sum, item) => sum + (item.total || 0), 0);
+  const calculateTotal = () => {
+    const quantity = parseFloat(formData.quantity) || 0;
+    const price = parseFloat(formData.price) || 0;
+    return (quantity * price).toFixed(2);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Convert form data to proper types
-    const processedItems = formData.items.map(item => ({
-      product: item.product,
-      quantity: parseFloat(item.quantity) || 0,
-      price: parseFloat(item.price) || 0,
-      total: parseFloat(item.quantity) * parseFloat(item.price) || 0
-    }));
-    
+    if (!formData.supplier || !formData.date || !formData.product || !formData.quantity || !formData.price) {
+      toast.error("يرجى ملء جميع الحقول المطلوبة");
+      return;
+    }
+
     const newPurchase = {
       ...formData,
       id: Date.now(),
-      totalAmount: processedItems.reduce((sum, item) => sum + item.total, 0),
-      status: "مكتملة",
-      items: processedItems
+      quantity: parseFloat(formData.quantity),
+      price: parseFloat(formData.price),
+      total: parseFloat(calculateTotal())
     };
     
     setPurchases([...purchases, newPurchase]);
     toast.success("تم تسجيل المشترى بنجاح");
     
     setFormData({
-      invoiceNumber: "",
       supplier: "",
-      date: "",
-      items: [{ product: "", quantity: "", price: "", total: 0 }]
+      date: null,
+      notes: "",
+      product: "",
+      quantity: "",
+      price: ""
     });
     setIsAddingPurchase(false);
   };
@@ -127,148 +81,141 @@ const PurchasesManager = () => {
   return (
     <div className="space-y-6">
       {/* Header Section */}
-      <Card>
+      <Card className="animate-fade-in bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
               <ShoppingCart className="h-5 w-5" />
               إدارة المشتريات
             </CardTitle>
             <Dialog open={isAddingPurchase} onOpenChange={setIsAddingPurchase}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="bg-blue-500 hover:bg-blue-600">
                   <Plus className="h-4 w-4 ml-2" />
                   إضافة مشترى جديد
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir="rtl">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" dir="rtl">
                 <DialogHeader>
-                  <DialogTitle>إضافة مشترى جديد</DialogTitle>
+                  <DialogTitle className="text-gray-900 dark:text-white">إضافة مشترى جديد</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="supplier" className="text-gray-700 dark:text-gray-300">اختر المورد *</Label>
+                    <Select value={formData.supplier} onValueChange={(value) => setFormData({...formData, supplier: value})}>
+                      <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                        <SelectValue placeholder="اختر المورد" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        {suppliers.length === 0 ? (
+                          <SelectItem value="no-suppliers" disabled>لا توجد موردين مسجلين</SelectItem>
+                        ) : (
+                          suppliers.map(supplier => (
+                            <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-gray-700 dark:text-gray-300">التاريخ *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white",
+                            !formData.date && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.date ? format(formData.date, "PPP", { locale: ar }) : <span>اختر التاريخ</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.date}
+                          onSelect={(date) => setFormData({...formData, date})}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="notes" className="text-gray-700 dark:text-gray-300">ملاحظات (اختياري)</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                      rows={3}
+                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                      placeholder="أضف ملاحظات إضافية..."
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="product" className="text-gray-700 dark:text-gray-300">اختر المنتج *</Label>
+                    <Select value={formData.product} onValueChange={(value) => setFormData({...formData, product: value})}>
+                      <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                        <SelectValue placeholder="اختر المنتج" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                        {products.length === 0 ? (
+                          <SelectItem value="no-products" disabled>لا توجد منتجات مسجلة</SelectItem>
+                        ) : (
+                          products.map(product => (
+                            <SelectItem key={product} value={product}>{product}</SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="invoiceNumber">رقم الفاتورة</Label>
+                      <Label htmlFor="quantity" className="text-gray-700 dark:text-gray-300">الكمية *</Label>
                       <Input
-                        id="invoiceNumber"
-                        value={formData.invoiceNumber}
-                        onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})}
+                        id="quantity"
+                        type="number"
+                        step="0.01"
+                        value={formData.quantity}
+                        onChange={(e) => setFormData({...formData, quantity: e.target.value})}
                         required
+                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="supplier">المورد</Label>
-                      <Select value={formData.supplier} onValueChange={(value) => setFormData({...formData, supplier: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="اختر المورد" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {suppliers.map(supplier => (
-                            <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="date">تاريخ المشترى</Label>
+                      <Label htmlFor="price" className="text-gray-700 dark:text-gray-300">السعر *</Label>
                       <Input
-                        id="date"
-                        type="date"
-                        value={formData.date}
-                        onChange={(e) => setFormData({...formData, date: e.target.value})}
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) => setFormData({...formData, price: e.target.value})}
                         required
+                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                       />
                     </div>
                   </div>
 
-                  {/* Items Section */}
                   <div>
-                    <div className="flex justify-between items-center mb-4">
-                      <Label className="text-lg font-medium">تفاصيل المنتجات</Label>
-                      <Button type="button" onClick={addItem} size="sm">
-                        <Plus className="h-4 w-4 ml-1" />
-                        إضافة منتج
-                      </Button>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {formData.items.map((item, index) => (
-                        <div key={index} className="grid grid-cols-5 gap-4 p-4 border rounded-lg">
-                          <div>
-                            <Label>المنتج</Label>
-                            <Select 
-                              value={item.product} 
-                              onValueChange={(value) => updateItem(index, 'product', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="اختر المنتج" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {products.map(product => (
-                                  <SelectItem key={product} value={product}>{product}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>الكمية</Label>
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label>السعر</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={item.price}
-                              onChange={(e) => updateItem(index, 'price', e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label>الإجمالي</Label>
-                            <Input
-                              value={item.total.toFixed(2)}
-                              disabled
-                              className="bg-gray-50"
-                            />
-                          </div>
-                          <div className="flex items-end">
-                            {formData.items.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => removeItem(index)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-medium">المبلغ الإجمالي:</span>
-                        <span className="text-2xl font-bold text-green-600">
-                          {calculateTotalAmount().toFixed(2)} ر.س
-                        </span>
-                      </div>
-                    </div>
+                    <Label className="text-gray-700 dark:text-gray-300">الإجمالي</Label>
+                    <Input
+                      value={`${calculateTotal()} ر.س`}
+                      disabled
+                      className="bg-gray-50 dark:bg-gray-600 text-gray-900 dark:text-white font-bold text-lg"
+                    />
                   </div>
 
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={() => setIsAddingPurchase(false)}>
                       إلغاء
                     </Button>
-                    <Button type="submit">
+                    <Button type="submit" className="bg-blue-500 hover:bg-blue-600">
                       حفظ المشترى
                     </Button>
                   </div>
@@ -285,10 +232,10 @@ const PurchasesManager = () => {
                 placeholder="البحث في المشتريات..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pr-10"
+                className="pr-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
               />
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
               إجمالي المشتريات: {filteredPurchases.length}
             </div>
           </div>
@@ -296,100 +243,35 @@ const PurchasesManager = () => {
       </Card>
 
       {/* Purchases Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-right">رقم الفاتورة</TableHead>
-                <TableHead className="text-right">المورد</TableHead>
-                <TableHead className="text-right">التاريخ</TableHead>
-                <TableHead className="text-right">المبلغ الإجمالي</TableHead>
-                <TableHead className="text-right">الحالة</TableHead>
-                <TableHead className="text-right">الإجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPurchases.map((purchase) => (
-                <TableRow key={purchase.id}>
-                  <TableCell className="font-mono">{purchase.invoiceNumber}</TableCell>
-                  <TableCell>{purchase.supplier}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      {new Date(purchase.date).toLocaleDateString('ar-SA')}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {purchase.totalAmount.toFixed(2)} ر.س
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      purchase.status === 'مكتملة' ? 'bg-green-100 text-green-800' : 
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {purchase.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-3xl" dir="rtl">
-                          <DialogHeader>
-                            <DialogTitle>تفاصيل المشترى - {purchase.invoiceNumber}</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label>المورد</Label>
-                                <p className="text-lg">{purchase.supplier}</p>
-                              </div>
-                              <div>
-                                <Label>التاريخ</Label>
-                                <p className="text-lg">{new Date(purchase.date).toLocaleDateString('ar-SA')}</p>
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <Label className="text-lg font-medium">المنتجات</Label>
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="text-right">المنتج</TableHead>
-                                    <TableHead className="text-right">الكمية</TableHead>
-                                    <TableHead className="text-right">السعر</TableHead>
-                                    <TableHead className="text-right">الإجمالي</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {purchase.items.map((item, index) => (
-                                    <TableRow key={index}>
-                                      <TableCell>{item.product}</TableCell>
-                                      <TableCell>{item.quantity}</TableCell>
-                                      <TableCell>{item.price.toFixed(2)} ر.س</TableCell>
-                                      <TableCell>{item.total.toFixed(2)} ر.س</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                            
-                            <div className="border-t pt-4">
-                              <div className="flex justify-between items-center">
-                                <span className="text-xl font-medium">المبلغ الإجمالي:</span>
-                                <span className="text-2xl font-bold text-green-600">
-                                  {purchase.totalAmount.toFixed(2)} ر.س
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+      {filteredPurchases.length > 0 ? (
+        <Card className="animate-scale-in bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-gray-200 dark:border-gray-700">
+                  <TableHead className="text-right text-gray-900 dark:text-white">المورد</TableHead>
+                  <TableHead className="text-right text-gray-900 dark:text-white">التاريخ</TableHead>
+                  <TableHead className="text-right text-gray-900 dark:text-white">المنتج</TableHead>
+                  <TableHead className="text-right text-gray-900 dark:text-white">الكمية</TableHead>
+                  <TableHead className="text-right text-gray-900 dark:text-white">السعر</TableHead>
+                  <TableHead className="text-right text-gray-900 dark:text-white">الإجمالي</TableHead>
+                  <TableHead className="text-right text-gray-900 dark:text-white">الإجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPurchases.map((purchase) => (
+                  <TableRow key={purchase.id} className="border-gray-200 dark:border-gray-700">
+                    <TableCell className="text-gray-900 dark:text-white">{purchase.supplier}</TableCell>
+                    <TableCell className="text-gray-900 dark:text-white">
+                      {purchase.date ? format(purchase.date, "yyyy/MM/dd", { locale: ar }) : "-"}
+                    </TableCell>
+                    <TableCell className="text-gray-900 dark:text-white">{purchase.product}</TableCell>
+                    <TableCell className="text-gray-900 dark:text-white">{purchase.quantity}</TableCell>
+                    <TableCell className="text-gray-900 dark:text-white">{purchase.price.toFixed(2)} ر.س</TableCell>
+                    <TableCell className="font-medium text-green-600 dark:text-green-400">
+                      {purchase.total.toFixed(2)} ر.س
+                    </TableCell>
+                    <TableCell>
                       <Button
                         size="sm"
                         variant="outline"
@@ -398,14 +280,23 @@ const PurchasesManager = () => {
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="animate-fade-in bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <CardContent className="text-center py-12">
+            <ShoppingCart className="h-16 w-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+            <p className="text-gray-500 dark:text-gray-400 text-lg">
+              لا توجد مشتريات مسجلة حتى الآن
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
