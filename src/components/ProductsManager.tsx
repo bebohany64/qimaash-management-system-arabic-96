@@ -26,7 +26,7 @@ interface Product {
 const ProductsManager = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [activeTab, setActiveTab] = useState("list");
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -60,23 +60,31 @@ const ProductsManager = () => {
   const loadProducts = async () => {
     try {
       setIsLoading(true);
+      console.log('Loading products from database...');
       const result = await executeQuery('SELECT * FROM products ORDER BY created_at DESC');
-      console.log('Raw database result:', result);
+      console.log('Products query result:', result);
       
-      if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
-        const productsData = result.results[0].response.result.rows.map((row: any) => ({
-          id: row[0],
-          name: row[1],
-          category: row[3] || row[2],
-          customCategory: row[3],
-          unit: row[4],
-          price: row[5],
-          previousBalance: row[6],
-          outgoing: row[7],
-          total: row[8]
-        }));
+      if (result?.results?.[0]?.response?.result?.rows) {
+        const rows = result.results[0].response.result.rows;
+        console.log('Raw rows from database:', rows);
+        
+        const productsData = rows.map((row: any[], index: number) => {
+          console.log(`Processing row ${index}:`, row);
+          return {
+            id: Number(row[0]) || 0,
+            name: String(row[1] || ""),
+            category: String(row[3] || row[2] || ""),
+            customCategory: row[3] ? String(row[3]) : undefined,
+            unit: String(row[4] || ""),
+            price: Number(row[5]) || 0,
+            previousBalance: Number(row[6]) || 0,
+            outgoing: Number(row[7]) || 0,
+            total: Number(row[8]) || 0
+          };
+        });
+        
+        console.log('Processed products data:', productsData);
         setProducts(productsData);
-        console.log('Processed products:', productsData);
       } else {
         console.log('No products found or unexpected result structure');
         setProducts([]);
@@ -84,6 +92,7 @@ const ProductsManager = () => {
     } catch (error) {
       console.error('Error loading products:', error);
       toast.error('خطأ في تحميل المنتجات');
+      setProducts([]);
     } finally {
       setIsLoading(false);
     }
@@ -93,20 +102,65 @@ const ProductsManager = () => {
     loadProducts();
   }, []);
 
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      category: "",
+      customCategory: "",
+      unit: "",
+      price: 0,
+      previousBalance: 0,
+      outgoing: 0
+    });
+    setEditingProduct(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name.trim()) {
+      toast.error('يرجى إدخال اسم المنتج');
+      return;
+    }
+    
+    if (!formData.category) {
+      toast.error('يرجى اختيار فئة المنتج');
+      return;
+    }
+    
+    if (formData.category === "أخرى" && !formData.customCategory.trim()) {
+      toast.error('يرجى إدخال الفئة المخصصة');
+      return;
+    }
+    
+    if (!formData.unit) {
+      toast.error('يرجى اختيار وحدة القياس');
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
       const finalCategory = formData.category === "أخرى" ? formData.customCategory : formData.category;
       const total = formData.previousBalance - formData.outgoing;
       
+      console.log('Submitting product data:', {
+        name: formData.name,
+        category: finalCategory,
+        customCategory: formData.category === "أخرى" ? formData.customCategory : null,
+        unit: formData.unit,
+        price: formData.price,
+        previousBalance: formData.previousBalance,
+        outgoing: formData.outgoing,
+        total: total
+      });
+      
       if (editingProduct) {
-        await executeQuery(
+        const updateResult = await executeQuery(
           'UPDATE products SET name = ?, category = ?, custom_category = ?, unit = ?, price = ?, previous_balance = ?, outgoing = ?, total = ? WHERE id = ?',
           [
             formData.name,
-            formData.category === "أخرى" ? formData.category : finalCategory,
+            finalCategory,
             formData.category === "أخرى" ? formData.customCategory : null,
             formData.unit,
             formData.price,
@@ -116,13 +170,14 @@ const ProductsManager = () => {
             editingProduct.id
           ]
         );
+        console.log('Update result:', updateResult);
         toast.success("تم تحديث المنتج بنجاح");
       } else {
-        await executeQuery(
+        const insertResult = await executeQuery(
           'INSERT INTO products (name, category, custom_category, unit, price, previous_balance, outgoing, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [
             formData.name,
-            formData.category === "أخرى" ? formData.category : finalCategory,
+            finalCategory,
             formData.category === "أخرى" ? formData.customCategory : null,
             formData.unit,
             formData.price,
@@ -131,21 +186,13 @@ const ProductsManager = () => {
             total
           ]
         );
+        console.log('Insert result:', insertResult);
         toast.success("تم إضافة المنتج بنجاح");
       }
 
       await loadProducts();
-      setFormData({
-        name: "",
-        category: "",
-        customCategory: "",
-        unit: "",
-        price: 0,
-        previousBalance: 0,
-        outgoing: 0
-      });
-      setIsAddingProduct(false);
-      setEditingProduct(null);
+      resetForm();
+      setActiveTab("list");
     } catch (error) {
       console.error('Error saving product:', error);
       toast.error('خطأ في حفظ المنتج');
@@ -165,7 +212,7 @@ const ProductsManager = () => {
       previousBalance: product.previousBalance,
       outgoing: product.outgoing
     });
-    setIsAddingProduct(true);
+    setActiveTab("add");
   };
 
   const handleDelete = async (id: number) => {
@@ -173,7 +220,9 @@ const ProductsManager = () => {
     
     try {
       setIsLoading(true);
-      await executeQuery('DELETE FROM products WHERE id = ?', [id]);
+      console.log('Deleting product with id:', id);
+      const deleteResult = await executeQuery('DELETE FROM products WHERE id = ?', [id]);
+      console.log('Delete result:', deleteResult);
       await loadProducts();
       toast.success("تم حذف المنتج بنجاح");
     } catch (error) {
@@ -199,7 +248,7 @@ const ProductsManager = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="list" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-gray-700 border-gray-600">
               <TabsTrigger 
                 value="list" 
@@ -210,105 +259,155 @@ const ProductsManager = () => {
               <TabsTrigger 
                 value="add" 
                 className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-gray-300"
-                onClick={() => setIsAddingProduct(true)}
               >
-                إضافة منتج جديد
+                {editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="list" className="space-y-4">
-              {/* Search */}
-              <div className="flex items-center space-x-2 space-x-reverse">
-                <Search className="h-5 w-5 text-gray-400" />
-                <Input
-                  placeholder="البحث عن منتج..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="max-w-sm bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
-                />
+            <TabsContent value="list" className="space-y-6 mt-6">
+              {/* Search Section */}
+              <div className="bg-gray-700 p-4 rounded-lg">
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <Search className="h-5 w-5 text-gray-400" />
+                  <Input
+                    placeholder="البحث عن منتج..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm bg-gray-600 border-gray-500 text-white placeholder:text-gray-400"
+                  />
+                  <Button 
+                    onClick={() => setActiveTab("add")}
+                    className="bg-green-600 hover:bg-green-700 text-white mr-auto"
+                  >
+                    <Plus className="h-4 w-4 ml-2" />
+                    إضافة منتج جديد
+                  </Button>
+                </div>
+              </div>
+
+              {/* Statistics Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="bg-blue-600 border-blue-500">
+                  <CardContent className="p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">{products.length}</div>
+                      <div className="text-blue-100">إجمالي المنتجات</div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-green-600 border-green-500">
+                  <CardContent className="p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">
+                        {products.reduce((sum, p) => sum + p.previousBalance, 0)}
+                      </div>
+                      <div className="text-green-100">إجمالي الرصيد السابق</div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-yellow-600 border-yellow-500">
+                  <CardContent className="p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">
+                        {products.reduce((sum, p) => sum + p.total, 0)}
+                      </div>
+                      <div className="text-yellow-100">إجمالي المتاح</div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Products Table */}
-              <div className="rounded-md border border-gray-600 overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-gray-700">
-                    <TableRow className="border-gray-600">
-                      <TableHead className="text-gray-300">اسم المنتج</TableHead>
-                      <TableHead className="text-gray-300">الفئة</TableHead>
-                      <TableHead className="text-gray-300">وحدة القياس</TableHead>
-                      <TableHead className="text-gray-300">السعر (جنيه)</TableHead>
-                      <TableHead className="text-gray-300">الرصيد السابق</TableHead>
-                      <TableHead className="text-gray-300">المنصرف</TableHead>
-                      <TableHead className="text-gray-300">الإجمالي</TableHead>
-                      <TableHead className="text-gray-300">الإجراءات</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="bg-gray-800">
-                    {isLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-400">
-                          جاري التحميل...
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredProducts.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-400">
-                          لا توجد منتجات مضافة حالياً
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredProducts.map((product) => (
-                        <TableRow key={product.id} className="border-gray-600 hover:bg-gray-700 transition-colors">
-                          <TableCell className="text-white">{product.name}</TableCell>
-                          <TableCell className="text-gray-300">{product.category}</TableCell>
-                          <TableCell className="text-gray-300">{product.unit}</TableCell>
-                          <TableCell className="text-green-400">{product.price}</TableCell>
-                          <TableCell className="text-blue-400">{product.previousBalance}</TableCell>
-                          <TableCell className="text-red-400">{product.outgoing}</TableCell>
-                          <TableCell className="text-yellow-400 font-bold">{product.total}</TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2 space-x-reverse">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleEdit(product)}
-                                className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white transition-all duration-200 shadow-lg hover:shadow-blue-500/25"
-                                disabled={isLoading}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleDelete(product.id)}
-                                className="border-red-500 text-red-400 hover:bg-red-500 hover:text-white transition-all duration-200 shadow-lg hover:shadow-red-500/25"
-                                disabled={isLoading}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
+              <Card className="bg-gray-700 border-gray-600">
+                <CardHeader>
+                  <CardTitle className="text-white">جدول المنتجات</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border border-gray-600 overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-gray-600">
+                        <TableRow className="border-gray-500">
+                          <TableHead className="text-gray-200 font-semibold">اسم المنتج</TableHead>
+                          <TableHead className="text-gray-200 font-semibold">الفئة</TableHead>
+                          <TableHead className="text-gray-200 font-semibold">وحدة القياس</TableHead>
+                          <TableHead className="text-gray-200 font-semibold">السعر (جنيه)</TableHead>
+                          <TableHead className="text-gray-200 font-semibold">الرصيد السابق</TableHead>
+                          <TableHead className="text-gray-200 font-semibold">المنصرف</TableHead>
+                          <TableHead className="text-gray-200 font-semibold">الإجمالي</TableHead>
+                          <TableHead className="text-gray-200 font-semibold">الإجراءات</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                      </TableHeader>
+                      <TableBody className="bg-gray-800">
+                        {isLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-gray-400">
+                              جاري التحميل...
+                            </TableCell>
+                          </TableRow>
+                        ) : filteredProducts.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-gray-400">
+                              {searchTerm ? 'لا توجد منتجات تطابق البحث' : 'لا توجد منتجات مضافة حالياً'}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredProducts.map((product, index) => (
+                            <TableRow key={product.id} className={`border-gray-600 hover:bg-gray-700 transition-colors ${index % 2 === 0 ? 'bg-gray-800' : 'bg-gray-750'}`}>
+                              <TableCell className="text-white font-medium">{product.name}</TableCell>
+                              <TableCell className="text-gray-300">{product.category}</TableCell>
+                              <TableCell className="text-gray-300">{product.unit}</TableCell>
+                              <TableCell className="text-green-400 font-bold">{product.price.toFixed(2)}</TableCell>
+                              <TableCell className="text-blue-400 font-bold">{product.previousBalance}</TableCell>
+                              <TableCell className="text-red-400 font-bold">{product.outgoing}</TableCell>
+                              <TableCell className={`font-bold ${product.total >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {product.total}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex space-x-2 space-x-reverse">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => handleEdit(product)}
+                                    className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white transition-all duration-200"
+                                    disabled={isLoading}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => handleDelete(product.id)}
+                                    className="border-red-500 text-red-400 hover:bg-red-500 hover:text-white transition-all duration-200"
+                                    disabled={isLoading}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
-            <TabsContent value="add" className="space-y-4">
-              <Card className="bg-gray-700 border-gray-600 animate-scale-in">
+            <TabsContent value="add" className="space-y-4 mt-6">
+              <Card className="bg-gray-700 border-gray-600">
                 <CardHeader>
-                  <CardTitle className="text-white">
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Package className="h-5 w-5" />
                     {editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Product Name */}
                       <div className="space-y-2">
-                        <Label htmlFor="name" className="text-gray-300">اسم المنتج</Label>
+                        <Label htmlFor="name" className="text-gray-300 font-medium">اسم المنتج *</Label>
                         <Input
                           id="name"
                           type="text"
@@ -322,14 +421,14 @@ const ProductsManager = () => {
 
                       {/* Category */}
                       <div className="space-y-2">
-                        <Label htmlFor="category" className="text-gray-300">الفئة</Label>
-                        <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
+                        <Label htmlFor="category" className="text-gray-300 font-medium">الفئة *</Label>
+                        <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value, customCategory: ""})}>
                           <SelectTrigger className="bg-gray-600 border-gray-500 text-white">
                             <SelectValue placeholder="اختر الفئة" />
                           </SelectTrigger>
                           <SelectContent className="bg-gray-600 border-gray-500">
                             {categories.map((category) => (
-                              <SelectItem key={category} value={category} className="text-white">
+                              <SelectItem key={category} value={category} className="text-white hover:bg-gray-500">
                                 {category}
                               </SelectItem>
                             ))}
@@ -340,7 +439,7 @@ const ProductsManager = () => {
                       {/* Custom Category */}
                       {formData.category === "أخرى" && (
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="customCategory" className="text-gray-300">الفئة المخصصة</Label>
+                          <Label htmlFor="customCategory" className="text-gray-300 font-medium">الفئة المخصصة *</Label>
                           <Input
                             id="customCategory"
                             type="text"
@@ -355,14 +454,14 @@ const ProductsManager = () => {
 
                       {/* Unit */}
                       <div className="space-y-2">
-                        <Label htmlFor="unit" className="text-gray-300">وحدة القياس</Label>
+                        <Label htmlFor="unit" className="text-gray-300 font-medium">وحدة القياس *</Label>
                         <Select value={formData.unit} onValueChange={(value) => setFormData({...formData, unit: value})}>
                           <SelectTrigger className="bg-gray-600 border-gray-500 text-white">
                             <SelectValue placeholder="اختر وحدة القياس" />
                           </SelectTrigger>
                           <SelectContent className="bg-gray-600 border-gray-500">
                             {units.map((unit) => (
-                              <SelectItem key={unit} value={unit} className="text-white">
+                              <SelectItem key={unit} value={unit} className="text-white hover:bg-gray-500">
                                 {unit}
                               </SelectItem>
                             ))}
@@ -372,14 +471,14 @@ const ProductsManager = () => {
 
                       {/* Price */}
                       <div className="space-y-2">
-                        <Label htmlFor="price"  className="text-gray-300">السعر (جنيه مصري)</Label>
+                        <Label htmlFor="price" className="text-gray-300 font-medium">السعر (جنيه مصري)</Label>
                         <Input
                           id="price"
                           type="number"
                           step="0.01"
+                          min="0"
                           value={formData.price}
                           onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value) || 0})}
-                          required
                           className="bg-gray-600 border-gray-500 text-white placeholder:text-gray-400"
                           placeholder="0.00"
                         />
@@ -387,13 +486,13 @@ const ProductsManager = () => {
 
                       {/* Previous Balance */}
                       <div className="space-y-2">
-                        <Label htmlFor="previousBalance" className="text-gray-300">الرصيد السابق</Label>
+                        <Label htmlFor="previousBalance" className="text-gray-300 font-medium">الرصيد السابق</Label>
                         <Input
                           id="previousBalance"
                           type="number"
+                          min="0"
                           value={formData.previousBalance}
                           onChange={(e) => setFormData({...formData, previousBalance: parseInt(e.target.value) || 0})}
-                          required
                           className="bg-gray-600 border-gray-500 text-white placeholder:text-gray-400"
                           placeholder="0"
                         />
@@ -401,45 +500,36 @@ const ProductsManager = () => {
 
                       {/* Outgoing */}
                       <div className="space-y-2">
-                        <Label htmlFor="outgoing" className="text-gray-300">المنصرف</Label>
+                        <Label htmlFor="outgoing" className="text-gray-300 font-medium">المنصرف</Label>
                         <Input
                           id="outgoing"
                           type="number"
+                          min="0"
                           value={formData.outgoing}
                           onChange={(e) => setFormData({...formData, outgoing: parseInt(e.target.value) || 0})}
-                          required
                           className="bg-gray-600 border-gray-500 text-white placeholder:text-gray-400"
                           placeholder="0"
                         />
                       </div>
+                    </div>
 
-                      {/* Total (Read-only) */}
-                      <div className="space-y-2 md:col-span-2">
-                        <Label className="text-gray-300">الإجمالي</Label>
-                        <div className="px-3 py-2 bg-gray-800 border border-gray-500 rounded-md text-yellow-400 font-bold text-lg">
-                          {formData.previousBalance - formData.outgoing}
-                        </div>
+                    {/* Total (Read-only) */}
+                    <div className="bg-gray-800 p-4 rounded-lg border border-gray-600">
+                      <Label className="text-gray-300 font-medium">الإجمالي المتاح</Label>
+                      <div className={`text-2xl font-bold mt-2 ${(formData.previousBalance - formData.outgoing) >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {formData.previousBalance - formData.outgoing} {formData.unit}
                       </div>
                     </div>
 
-                    <div className="flex justify-end space-x-2 space-x-reverse pt-4">
+                    <div className="flex justify-end space-x-3 space-x-reverse pt-4 border-t border-gray-600">
                       <Button 
                         type="button" 
                         variant="outline"
                         onClick={() => {
-                          setIsAddingProduct(false);
-                          setEditingProduct(null);
-                          setFormData({
-                            name: "",
-                            category: "",
-                            customCategory: "",
-                            unit: "",
-                            price: 0,
-                            previousBalance: 0,
-                            outgoing: 0
-                          });
+                          resetForm();
+                          setActiveTab("list");
                         }}
-                        className="border-gray-500 text-gray-300 hover:bg-gray-600 hover:text-white transition-all duration-200 shadow-lg"
+                        className="border-gray-500 text-gray-300 hover:bg-gray-600 hover:text-white"
                         disabled={isLoading}
                       >
                         <X className="h-4 w-4 ml-2" />
@@ -447,7 +537,7 @@ const ProductsManager = () => {
                       </Button>
                       <Button 
                         type="submit"
-                        className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition-all duration-200 shadow-lg hover:shadow-blue-500/25"
+                        className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
                         disabled={isLoading}
                       >
                         <Save className="h-4 w-4 ml-2" />

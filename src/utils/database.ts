@@ -14,11 +14,11 @@ export const dbConfig: DatabaseConfig = {
 };
 
 // Helper function to extract value from database response
-const extractValue = (dbValue: any): string => {
-  if (dbValue && typeof dbValue === 'object' && dbValue.value !== undefined) {
-    return String(dbValue.value);
+const extractValue = (dbValue: any): any => {
+  if (dbValue && typeof dbValue === 'object' && 'value' in dbValue) {
+    return dbValue.value;
   }
-  return String(dbValue || "");
+  return dbValue;
 };
 
 // دالة أساسية للاتصال بقاعدة البيانات
@@ -52,14 +52,19 @@ export const executeQuery = async (sql: string, params: any[] = []) => {
     }
 
     const result = await response.json();
-    console.log('Database query result:', result);
+    console.log('Raw database query result:', result);
     
     // Process the result to extract actual values
-    if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result && result.results[0].response.result.rows) {
-      const processedRows = result.results[0].response.result.rows.map((row: any[]) => 
-        row.map((cell: any) => extractValue(cell))
-      );
-      result.results[0].response.result.rows = processedRows;
+    if (result && result.results && result.results[0] && result.results[0].response && result.results[0].response.result) {
+      const queryResult = result.results[0].response.result;
+      
+      if (queryResult.rows) {
+        const processedRows = queryResult.rows.map((row: any[]) => 
+          row.map((cell: any) => extractValue(cell))
+        );
+        result.results[0].response.result.rows = processedRows;
+        console.log('Processed rows:', processedRows);
+      }
     }
     
     return result;

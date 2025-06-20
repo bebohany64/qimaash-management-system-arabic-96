@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Users, ShoppingCart, FileText, Printer } from "lucide-react";
+import { Package, Users, ShoppingCart, FileText, Printer, Scissors } from "lucide-react";
 import ProductsManager from "@/components/ProductsManager";
 import SuppliersManager from "@/components/SuppliersManager";
 import PurchasesManager from "@/components/PurchasesManager";
@@ -21,7 +21,8 @@ const Index = () => {
               <Package className="h-8 w-8 text-green-500" />
               <h1 className="text-2xl font-bold text-white">نظام إدارة مخازن الأقمشة</h1>
             </div>
-            <div className="text-right">
+            <div className="text-right flex items-center gap-3">
+              <Scissors className="h-6 w-6 text-blue-400 animate-pulse" />
               <h2 className="text-lg font-semibold text-yellow-400" style={{ fontFamily: 'Cairo, sans-serif' }}>
                 وزارة العمل - مركز التدريب 2025
               </h2>
