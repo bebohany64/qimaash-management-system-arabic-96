@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Plus, Edit, Trash2, Search } from "lucide-react";
+import { Package, Plus, Edit, Trash2, Search, Save, X } from "lucide-react";
+import { toast } from "sonner";
+import { executeQuery } from '@/utils/database';
 
 interface Product {
   id: number;
@@ -26,6 +28,7 @@ const ProductsManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -53,47 +56,96 @@ const ProductsManager = () => {
     "عبوة"
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const finalCategory = formData.category === "أخرى" ? formData.customCategory : formData.category;
-    const total = formData.previousBalance - formData.outgoing;
-    
-    const productData = {
-      name: formData.name,
-      category: finalCategory,
-      unit: formData.unit,
-      price: formData.price,
-      previousBalance: formData.previousBalance,
-      outgoing: formData.outgoing,
-      total: total
-    };
-
-    if (editingProduct) {
-      setProducts(products.map(p => 
-        p.id === editingProduct.id 
-          ? { ...productData, id: editingProduct.id }
-          : p
-      ));
-      setEditingProduct(null);
-    } else {
-      const newProduct = {
-        ...productData,
-        id: Date.now()
-      };
-      setProducts([...products, newProduct]);
+  // Load products from database
+  const loadProducts = async () => {
+    try {
+      setIsLoading(true);
+      const result = await executeQuery('SELECT * FROM products ORDER BY created_at DESC');
+      if (result && result.results && result.results[0] && result.results[0].rows) {
+        const productsData = result.results[0].rows.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          category: row.custom_category || row.category,
+          customCategory: row.custom_category,
+          unit: row.unit,
+          price: row.price,
+          previousBalance: row.previous_balance,
+          outgoing: row.outgoing,
+          total: row.total
+        }));
+        setProducts(productsData);
+      }
+    } catch (error) {
+      console.error('Error loading products:', error);
+      toast.error('خطأ في تحميل المنتجات');
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    setFormData({
-      name: "",
-      category: "",
-      customCategory: "",
-      unit: "",
-      price: 0,
-      previousBalance: 0,
-      outgoing: 0
-    });
-    setIsAddingProduct(false);
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    try {
+      const finalCategory = formData.category === "أخرى" ? formData.customCategory : formData.category;
+      const total = formData.previousBalance - formData.outgoing;
+      
+      if (editingProduct) {
+        await executeQuery(
+          'UPDATE products SET name = ?, category = ?, custom_category = ?, unit = ?, price = ?, previous_balance = ?, outgoing = ?, total = ? WHERE id = ?',
+          [
+            formData.name,
+            formData.category === "أخرى" ? formData.category : finalCategory,
+            formData.category === "أخرى" ? formData.customCategory : null,
+            formData.unit,
+            formData.price,
+            formData.previousBalance,
+            formData.outgoing,
+            total,
+            editingProduct.id
+          ]
+        );
+        toast.success("تم تحديث المنتج بنجاح");
+      } else {
+        await executeQuery(
+          'INSERT INTO products (name, category, custom_category, unit, price, previous_balance, outgoing, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            formData.name,
+            formData.category === "أخرى" ? formData.category : finalCategory,
+            formData.category === "أخرى" ? formData.customCategory : null,
+            formData.unit,
+            formData.price,
+            formData.previousBalance,
+            formData.outgoing,
+            total
+          ]
+        );
+        toast.success("تم إضافة المنتج بنجاح");
+      }
+
+      await loadProducts();
+      setFormData({
+        name: "",
+        category: "",
+        customCategory: "",
+        unit: "",
+        price: 0,
+        previousBalance: 0,
+        outgoing: 0
+      });
+      setIsAddingProduct(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast.error('خطأ في حفظ المنتج');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEdit = (product: Product) => {
@@ -110,8 +162,20 @@ const ProductsManager = () => {
     setIsAddingProduct(true);
   };
 
-  const handleDelete = (id: number) => {
-    setProducts(products.filter(p => p.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
+    
+    try {
+      setIsLoading(true);
+      await executeQuery('DELETE FROM products WHERE id = ?', [id]);
+      await loadProducts();
+      toast.success("تم حذف المنتج بنجاح");
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('خطأ في حذف المنتج');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filteredProducts = products.filter(product =>
@@ -174,7 +238,13 @@ const ProductsManager = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="bg-gray-800">
-                    {filteredProducts.length === 0 ? (
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-400">
+                          جاري التحميل...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredProducts.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center py-8 text-gray-400">
                           لا توجد منتجات مضافة حالياً
@@ -196,7 +266,8 @@ const ProductsManager = () => {
                                 size="sm" 
                                 variant="outline" 
                                 onClick={() => handleEdit(product)}
-                                className="border-gray-600 text-gray-300 hover:bg-gray-600"
+                                className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white transition-all duration-200 shadow-lg hover:shadow-blue-500/25"
+                                disabled={isLoading}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -204,7 +275,8 @@ const ProductsManager = () => {
                                 size="sm" 
                                 variant="outline" 
                                 onClick={() => handleDelete(product.id)}
-                                className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
+                                className="border-red-500 text-red-400 hover:bg-red-500 hover:text-white transition-all duration-200 shadow-lg hover:shadow-red-500/25"
+                                disabled={isLoading}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -361,16 +433,19 @@ const ProductsManager = () => {
                             outgoing: 0
                           });
                         }}
-                        className="border-gray-600 text-gray-300 hover:bg-gray-600"
+                        className="border-gray-500 text-gray-300 hover:bg-gray-600 hover:text-white transition-all duration-200 shadow-lg"
+                        disabled={isLoading}
                       >
+                        <X className="h-4 w-4 ml-2" />
                         إلغاء
                       </Button>
                       <Button 
                         type="submit"
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition-all duration-200 shadow-lg hover:shadow-blue-500/25"
+                        disabled={isLoading}
                       >
-                        <Plus className="h-4 w-4 ml-2" />
-                        {editingProduct ? "تحديث المنتج" : "إضافة المنتج"}
+                        <Save className="h-4 w-4 ml-2" />
+                        {isLoading ? "جاري الحفظ..." : editingProduct ? "تحديث المنتج" : "إضافة المنتج"}
                       </Button>
                     </div>
                   </form>
